@@ -1397,18 +1397,18 @@ function cGoPage(p){const tp=Math.ceil((Cf.length||1)/CPP);if(p<1||p>tp)return;C
 // ═══════════════════════════════
 // FMS O2D Dashboard Logic
 // ═══════════════════════════════
-// const FMS_API = "https://script.google.com/macros/s/AKfycby7tpu7zfYzkWlu5LySCU823VGtJdONHvZqypzP_Y0tcO5kIXYyOOV3atGl9WVy_QI/exec";
-// let fmsAllData=[], fmsFiltered=[], fmsPage=1, fmsCurrentFilter='all';
-// const FMS_PER_PAGE=15;
-// let fmsCharts={};
-// let fmsLoaded=false;
+const FMS_API = "https://script.google.com/macros/s/AKfycby7tpu7zfYzkWlu5LySCU823VGtJdONHvZqypzP_Y0tcO5kIXYyOOV3atGl9WVy_QI/exec";
+let fmsAllData=[], fmsFiltered=[], fmsPage=1, fmsCurrentFilter='all';
+const FMS_PER_PAGE=15;
+let fmsCharts={};
+let fmsLoaded=false;
 
-// // Load when panel becomes active
-// const _origSwitchDB = switchDB;
-// switchDB = function(id) {
-//   _origSwitchDB(id);
-//   if(id==='fms' && !fmsLoaded) { fmsLoaded=true; fmsLoadData(); }
-// };
+// Load when panel becomes active
+const _origSwitchDB = switchDB;
+switchDB = function(id) {
+  _origSwitchDB(id);
+  if(id==='fms' && !fmsLoaded) { fmsLoaded=true; fmsLoadData(); }
+};
 
 async function fmsLoadData(){
   document.getElementById('fTableBody').innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;padding:3rem;gap:1rem;color:var(--muted);"><div class="loader-bar"><div class="loader-fill"></div></div><p style="font-size:0.8rem">Fetching live data...</p></div>`;
