@@ -69,6 +69,7 @@
   .main-area{margin-left:var(--sw);flex:1;min-height:100vh;display:flex;flex-direction:column;width:calc(100% - var(--sw));}
   .dashboard-panel{display:none;flex-direction:column;min-height:100vh;}
   .dashboard-panel.active{display:flex;}
+  #panel-tasks{overflow-x:auto;}
   .home-panel{padding:40px 40px 60px;}
   .home-welcome{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;margin-bottom:6px;}
   .home-welcome span{color:var(--accent);}
@@ -105,6 +106,7 @@
   .loader-text{font-size:0.78rem;color:var(--muted);}
   .error-banner{display:none;background:rgba(255,92,124,0.1);border:1px solid rgba(255,92,124,0.3);color:var(--hot);padding:12px 24px;font-size:0.8rem;text-align:center;}
   .db-content{padding:22px 28px 40px;}
+  #panel-tasks .db-content{padding-bottom:20px;}
   .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px;}
   .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 16px;position:relative;overflow:hidden;transition:transform 0.2s,border-color 0.2s,box-shadow 0.2s;cursor:pointer;}
   .kpi-card:hover{transform:translateY(-2px);border-color:var(--card-accent,var(--accent));}
@@ -159,6 +161,7 @@
   tbody tr:hover{background:var(--surface2);}
   tbody tr:last-child{border-bottom:none;}
   td{padding:11px 14px;font-size:0.78rem;vertical-align:middle;white-space:nowrap;}
+  #panel-tasks td{white-space:normal;}
   .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:0.65rem;font-weight:600;}
   .badge-hot{background:rgba(255,92,124,0.15);color:var(--hot);border:1px solid rgba(255,92,124,0.3);}
   .badge-warm{background:rgba(240,165,0,0.15);color:var(--warm);border:1px solid rgba(240,165,0,0.3);}
@@ -288,6 +291,12 @@
     .charts-grid2,
     .charts-grid3,
     .charts-grid4 { grid-template-columns: 1fr !important; gap: 10px !important; }
+    #tRow2 { grid-template-columns: 1fr !important; gap: 10px !important; }
+    #panel-tasks .filters-bar { gap: 6px !important; }
+    #panel-tasks .filter-input { min-width: 100% !important; }
+    #panel-tasks .filter-select { width: 100% !important; }
+    #panel-tasks .table-scroll { overflow-x: auto !important; }
+    #panel-tasks .kpi-grid { grid-template-columns: repeat(2,1fr) !important; }
 
     /* Charts height smaller on mobile */
     .chart-wrap { height: 200px !important; }
@@ -439,6 +448,7 @@
     <div class="nav-item" onclick="switchDB('leads')" id="nav-leads"><span class="nav-icon">📊</span><span class="nav-label">Lead Tracking</span><span class="nav-badge live">Live</span></div>
     <div class="nav-item" onclick="switchDB('collection')" id="nav-collection"><span class="nav-icon">💰</span><span class="nav-label">Collection</span><span class="nav-badge live">Live</span></div>
     <div class="nav-item" onclick="switchDB('fms')" id="nav-fms"><span class="nav-icon">🚚</span><span class="nav-label">FMS O2D</span><span class="nav-badge live">Live</span></div>
+    <div class="nav-item" onclick="switchDB('tasks')" id="nav-tasks"><span class="nav-icon">✅</span><span class="nav-label">Task Checklist</span><span class="nav-badge live">Live</span></div>
     <div class="sidebar-section" style="margin-top:8px">Coming Soon</div>
     <div class="nav-item disabled"><span class="nav-icon">👥</span><span class="nav-label">HR / Attendance</span><span class="nav-badge soon">Soon</span></div>
     <div class="nav-item disabled"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span><span class="nav-badge soon">Soon</span></div>
@@ -464,6 +474,9 @@
   <button class="bn-item" onclick="switchDB('fms')" id="bn-fms">
     <span class="bn-icon">🚚</span><span>FMS</span>
   </button>
+  <button class="bn-item" onclick="switchDB('tasks')" id="bn-tasks">
+    <span class="bn-icon">✅</span><span>Tasks</span>
+  </button>
   <button class="bn-item bn-more" onclick="toggleMoreMenu()">
     <span class="bn-icon">⋯</span><span>More</span>
     <div class="bn-more-menu" id="moreMenu">
@@ -487,6 +500,7 @@
       <div class="home-card" style="--card-top:#f0a500" onclick="switchDB('leads')"><div class="hc-icon">📊</div><div class="hc-name">Lead Tracking Dashboard</div><div class="hc-desc">Sales leads, pipeline health, win chances, rep leaderboard aur zyada.</div><span class="hc-status live">● Live</span></div>
       <div class="home-card" style="--card-top:#00d4aa" onclick="switchDB('collection')"><div class="hc-icon">💰</div><div class="hc-name">Collection Dashboard</div><div class="hc-desc">Daily commitment vs achievement, MTD progress, team leaderboard.</div><span class="hc-status live">● Live</span></div>
       <div class="home-card" style="--card-top:#00d4ff" onclick="switchDB('fms')"><div class="hc-icon">🚚</div><div class="hc-name">FMS O2D Dashboard</div><div class="hc-desc">Order to delivery tracking, step-wise KPIs, PC status, prefilled form support.</div><span class="hc-status live">● Live</span></div>
+      <div class="home-card" style="--card-top:#a855f7" onclick="switchDB('tasks')"><div class="hc-icon">✅</div><div class="hc-name">Task Checklist Dashboard</div><div class="hc-desc">Department-wise tasks, completion tracking, scores aur performance.</div><span class="hc-status live">● Live</span></div>
       <div class="home-card disabled" style="--card-top:#6b7280"><div class="hc-icon">👥</div><div class="hc-name">HR / Attendance</div><div class="hc-desc">Team attendance, leaves, performance tracking.</div><span class="hc-status soon">Coming Soon</span></div>
       <div class="home-card disabled" style="--card-top:#6b7280"><div class="hc-icon">📦</div><div class="hc-name">Inventory</div><div class="hc-desc">Stock levels, orders, and product movement.</div><span class="hc-status soon">Coming Soon</span></div>
       <div class="home-card disabled" style="--card-top:#6b7280"><div class="hc-icon">📣</div><div class="hc-name">Marketing</div><div class="hc-desc">Campaign performance, leads by source, ROI.</div><span class="hc-status soon">Coming Soon</span></div>
@@ -640,7 +654,6 @@
   </div>
 </div>
 
-</div><!-- main-area -->
 
 <!-- FMS O2D PANEL -->
 <div class="dashboard-panel" id="panel-fms">
@@ -756,6 +769,117 @@
   </div>
 </div>
 
+<!-- TASK CHECKLIST PANEL -->
+<div class="dashboard-panel" id="panel-tasks">
+  <div class="db-header">
+    <div>
+      <div class="db-title"><span>Aditi</span> Task Checklist</div>
+      <div class="db-breadcrumb">Portal → Task Checklist Dashboard</div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><div class="live-dot"></div> Live</div>
+      <button class="refresh-btn" onclick="refreshTasks()" id="tasksRefBtn"><span id="tasksRefIco">↻</span> Refresh</button>
+      <div class="last-sync" id="tasksSync">—</div>
+    </div>
+  </div>
+
+  <div class="db-loading" id="tasksLoad" style="display:none">
+    <div class="loader-logo">TASK CHECKLIST</div>
+    <div class="loader-bar"><div class="loader-fill"></div></div>
+    <div class="loader-text">Loading tasks...</div>
+  </div>
+
+  <div id="tNoTaskWarn" style="display:none"></div>
+  <div class="db-content" id="tasksCont" style="display:none">
+
+    <!-- Active Filter Badge -->
+    <div id="tCFBadge" style="display:none;align-items:center;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);border-radius:10px;padding:8px 16px;margin-bottom:14px;font-size:0.78rem;color:var(--text);gap:4px;flex-wrap:wrap;"></div>
+
+    <!-- KPI Cards -->
+    <div class="section-title">Key Performance Indicators</div>
+    <div class="kpi-grid" id="tKpiGrid"></div>
+
+    <!-- Charts Row 1 -->
+    <div class="section-title">Task Analytics</div>
+    <div class="charts-grid">
+      <div class="chart-card" id="tChStatusCard">
+        <div class="chart-title"><span class="dot" style="background:#a855f7"></span> Task Status <span style="font-size:0.65rem;color:var(--muted);margin-left:6px">Click to filter</span></div>
+        <div class="chart-wrap"><canvas id="tChStatus"></canvas></div>
+      </div>
+      <div class="chart-card" id="tChPersonCard">
+        <div class="chart-title"><span class="dot" style="background:#00d4ff"></span> Task Count by Person <span style="font-size:0.65rem;color:var(--muted);margin-left:6px">Click bar to filter</span></div>
+        <div class="chart-wrap"><canvas id="tChPerson"></canvas></div>
+      </div>
+      <div class="chart-card" id="tChDeptCard">
+        <div class="chart-title"><span class="dot" style="background:#f0a500"></span> Department-wise <span style="font-size:0.65rem;color:var(--muted);margin-left:6px">Click to filter</span></div>
+        <div class="chart-wrap"><canvas id="tChDept"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Leaderboard Full Width -->
+    <div class="section-title">Performance Leaderboard</div>
+    <div style="margin-bottom:16px">
+      <div class="chart-card">
+        <div class="chart-title"><span class="dot" style="background:#f0a500"></span> Full Leaderboard <span style="font-size:0.65rem;color:var(--muted);margin-left:6px">Click row to filter</span></div>
+        <div id="tLeaderboard" style="margin-top:8px;overflow-y:auto;max-height:300px"></div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="section-title">Task Explorer</div>
+    <div class="filters-bar" style="flex-wrap:wrap;gap:8px">
+      <span class="filter-label">Filter:</span>
+      <input class="filter-input" id="tSearch" placeholder="🔍 Name, task, dept..." oninput="tApply()" style="min-width:160px">
+      <select class="filter-select" id="tFDept" onchange="tApply()"><option value="">All Departments</option></select>
+      <select class="filter-select" id="tFPerson" onchange="tApply()"><option value="">All People</option></select>
+      <select class="filter-select" id="tFFreq" onchange="tApply()"><option value="">All Frequency</option></select>
+      <select class="filter-select" id="tFStatus" onchange="tApply()">
+        <option value="">All Status</option>
+        <option value="done">✅ Done</option>
+        <option value="pending">⏳ Pending</option>
+      </select>
+      <button class="reset-btn" onclick="tClearAll()">↺ Reset</button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+      <div class="table-header" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
+        <span class="table-title">All Tasks</span>
+        <span class="table-count" id="tTblCnt">—</span>
+
+      </div>
+      <div class="table-scroll" style="overflow-x:auto">
+        <table style="width:100%;table-layout:fixed;min-width:800px">
+          <colgroup>
+            <col style="width:13%">
+            <col style="width:10%">
+            <col style="width:6%">
+            <col style="width:6%">
+            <col style="width:24%">
+            <col style="width:9%">
+            <col style="width:9%">
+            <col style="width:9%">
+            <col style="width:14%">
+          </colgroup>
+          <thead><tr>
+            <th>NAME</th>
+            <th>DEPARTMENT</th>
+            <th>TASK ID</th>
+            <th>FREQ</th>
+            <th>TASK</th>
+            <th>PLANNED</th>
+            <th>ACTUAL</th>
+            <th>STATUS</th>
+            <th>ACTION</th>
+          </tr></thead>
+          <tbody id="tTblBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="tPagBar"></div>
+    </div>
+  </div>
+</div>
+
 <!-- FMS MODAL -->
 <div id="fmsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;align-items:center;justify-content:center;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;max-width:500px;width:92%;position:relative;">
@@ -796,6 +920,7 @@ function switchDB(id){
   document.getElementById('moreMenu').classList.remove('open');
   if(id==='leads'&&!lLoaded){lLoaded=true;loadLeads();}
   if(id==='collection'&&!cLoaded){cLoaded=true;loadColl();}
+  if(id==='tasks'&&!tLoaded){tLoaded=true;loadTasks();}
 }
 
 // ═══════════════════════════════════
@@ -1397,7 +1522,467 @@ function fmsExportCSV(){
 
 </script>
 
+</div><!-- main-area -->
+
 </div><!-- end mainPortal -->
+
+<script>
+// ═══════════════════════════════════════
+// TASK CHECKLIST DASHBOARD
+// ═══════════════════════════════════════
+const TASK_API = 'https://script.google.com/macros/s/AKfycbwzCJ_USWjj18Dj5Xtu1LUacso3H6oLKt0euvYVdByVsv1C2Zr9mtHPc48sAb9h5Fc/exec';
+let tAllData=[], tFiltered=[], tPage=1, tLoaded=false;
+const T_PER_PAGE=20;
+let tCharts={};
+// Active filters
+let tActiveKpi=null, tActivePerson=null, tActiveDept=null, tActiveStatus=null, tActiveFreq=null;
+
+async function loadTasks(){
+  document.getElementById('tasksLoad').style.display='flex';
+  document.getElementById('tasksCont').style.display='none';
+  try{
+    const res=await fetch(TASK_API);
+    const raw=await res.json();
+    const allRaw=raw.filter(r=>r['Name']&&String(r['Name']).trim()!=='');
+
+    // ── EMPLOYEE FILTER: sirf apni tasks ──
+    if(CURRENT_USER && CURRENT_USER.role!=='owner'){
+      const myEmail=String(CURRENT_USER.email||'').trim().toLowerCase();
+      const myName=String(CURRENT_USER.name||'').trim().toLowerCase();
+      const myFirst=myName.split(/\s+/)[0]||'';  // "pranali"
+      const myEmailLocal=myEmail.split('@')[0];   // "hr@aditi" → "hr"
+
+      tAllData=allRaw.filter(r=>{
+        const rName=String(r['Name']||'').trim().toLowerCase();
+        const rEmail=String(r['Email']||'').trim().toLowerCase();
+
+        if(rEmail && rEmail===myEmail) return true;   // exact email
+        if(rName && rName===myName) return true;       // exact full name
+        if(myFirst.length>2 && rName===myFirst) return true; // first name only match
+        if(myFirst.length>2 && rName.startsWith(myFirst)) return true; // name starts with
+        if(myEmailLocal.length>3 && rName===myEmailLocal) return true;
+        return false;
+      });
+
+      console.log('[Filter]', myEmail, myName, '→', tAllData.length, 'tasks');
+      // If still 0, log sheet names for debug
+      if(tAllData.length===0){
+        const sNames=[...new Set(allRaw.map(r=>String(r['Name']||'').trim()).filter(Boolean))].slice(0,15);
+        const sEmails=[...new Set(allRaw.map(r=>String(r['Email']||'').trim()).filter(Boolean))].slice(0,15);
+        console.warn('[Filter] NO MATCH. Sheet Names:', sNames);
+        console.warn('[Filter] Sheet Emails:', sEmails);
+      }
+    } else {
+      tAllData=allRaw;
+    }
+    document.getElementById('tasksSync').textContent='Updated '+new Date().toLocaleTimeString();
+    tProcessData();
+    document.getElementById('tasksLoad').style.display='none';
+    document.getElementById('tasksCont').style.display='block';
+    // Show warning if employee has 0 tasks
+    if(CURRENT_USER && CURRENT_USER.role!=='owner' && tAllData.length===0){
+      const warn=document.getElementById('tNoTaskWarn');
+      if(warn){
+        // Get sample names & emails from raw data for debug
+        const sampleNames=[...new Set(allRaw.map(r=>String(r['Name']||'').trim()).filter(Boolean))].slice(0,8);
+        const sampleEmails=[...new Set(allRaw.map(r=>String(r['Email']||'').trim()).filter(Boolean))].slice(0,8);
+        const cols=allRaw.length>0?Object.keys(allRaw[0]):[];
+        warn.style.display='block';
+        warn.innerHTML=`<div style="background:rgba(255,92,124,0.08);border:1px solid rgba(255,92,124,0.3);border-radius:12px;padding:16px 20px;margin:16px 28px">
+          <div style="color:#ff5c7c;font-weight:700;margin-bottom:8px">⚠️ Koi task nahi mila!</div>
+          <div style="font-size:0.78rem;margin-bottom:6px">Login email: <b style="color:#f0a500">${CURRENT_USER.email}</b> &nbsp;|&nbsp; Name: <b style="color:#f0a500">${CURRENT_USER.name}</b></div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-bottom:4px">Task sheet columns: <b style="color:#00d4ff">${cols.join(', ')}</b></div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-bottom:4px">Sheet ke Names: <b style="color:#e8eaf0">${sampleNames.join(' | ')}</b></div>
+          <div style="font-size:0.72rem;color:var(--muted)">Sheet ke Emails: <b style="color:#e8eaf0">${sampleEmails.join(' | ')}</b></div>
+          <div style="margin-top:10px;font-size:0.72rem;color:#f0a500">👆 Upar ke naam/email se apna login match karo — exact same hona chahiye!</div>
+        </div>`;
+      }
+    }
+  }catch(e){
+    document.getElementById('tasksLoad').style.display='none';
+    document.getElementById('tasksCont').style.display='block';
+    document.getElementById('tTblBody').innerHTML=`<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--hot)">❌ ${e.message}</td></tr>`;
+  }
+}
+
+async function refreshTasks(){
+  const btn=document.getElementById('tasksRefBtn');
+  btn.classList.add('spinning');
+  Object.values(tCharts).forEach(c=>c&&c.destroy&&c.destroy()); tCharts={};
+  tActiveKpi=null; tActivePerson=null; tActiveDept=null; tActiveStatus=null;
+  tLoaded=true;
+  await loadTasks();
+  btn.classList.remove('spinning');
+}
+
+function tProcessData(){
+  tRenderKPIs();
+  tRenderCharts();
+  tPopulateFilters();
+  tFiltered=[...tAllData]; tPage=1;
+  tRenderTable();
+  tUpdateBadge();
+}
+
+function tIsDone(r){
+  const s=String(r['Status']||'').toLowerCase().trim();
+  const actual=String(r['Actual']||'').trim();
+  return s==='done'||s==='yes'||s==='1'||s==='complete'||s==='completed'||actual!=='';
+}
+
+function tGetFiltered(){
+  return tAllData.filter(r=>{
+    if(tActivePerson&&r['Name']!==tActivePerson) return false;
+    if(tActiveDept&&r['Department']!==tActiveDept) return false;
+    if(tActiveStatus==='done'&&!tIsDone(r)) return false;
+    if(tActiveStatus==='pending'&&tIsDone(r)) return false;
+    if(tActiveFreq&&(r['Freq']||'')!==tActiveFreq) return false;
+    const q=(document.getElementById('tSearch').value||'').toLowerCase();
+    if(q&&!((r['Name']||'').toLowerCase().includes(q)||(r['Task']||'').toLowerCase().includes(q)||(r['Department']||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+
+function tRenderKPIs(){
+  const total=tAllData.length;
+  const done=tAllData.filter(r=>tIsDone(r)).length;
+  const pending=total-done;
+  const pct=total?Math.round((done/total)*100):0;
+
+  // Unique employees
+  const uniqueEmp=[...new Set(tAllData.map(r=>r['Name']).filter(Boolean))].length;
+
+  // Avg completion per person
+  const persons=[...new Set(tAllData.map(r=>r['Name']).filter(Boolean))];
+  let avgPct=0;
+  if(persons.length){
+    const percs=persons.map(p=>{
+      const rows=tAllData.filter(r=>r['Name']===p);
+      const d=rows.filter(r=>tIsDone(r)).length;
+      return rows.length?Math.round((d/rows.length)*100):0;
+    });
+    avgPct=Math.round(percs.reduce((a,b)=>a+b,0)/persons.length);
+  }
+
+  const kpis=[
+    {id:'all',      label:'Total Tasks',      value:total,       color:'#a855f7', sub:'All records'},
+    {id:'done',     label:'Completed',        value:done,        color:'#00d4aa', sub:pct+'% completion'},
+    {id:'pending',  label:'Pending',          value:pending,     color:'#f0a500', sub:(100-pct)+'% remaining'},
+    {id:'pct',      label:'Completion %',     value:pct+'%',     color:'#00d4ff', sub:'Overall rate'},
+    {id:'emp',      label:'Total Employees',  value:uniqueEmp,   color:'#f472b6', sub:'Active members'},
+    {id:'avgpct',   label:'Avg Per Person',   value:avgPct+'%',  color:'#34d399', sub:'Team average'},
+  ];
+
+  document.getElementById('tKpiGrid').innerHTML=kpis.map(k=>{
+    const isActive=tActiveKpi===k.id;
+    return `<div class="kpi-card ${isActive?'kpi-active':''}" 
+      style="--card-accent:${k.color};cursor:pointer;transition:all 0.2s"
+      onclick="tKpiClick('${k.id}')">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value" style="color:${k.color}">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+      <span class="kpi-badge" style="background:${k.color}22;color:${k.color}">${isActive?'✕ Clear':'↗ Filter'}</span>
+    </div>`;
+  }).join('');
+}
+
+function tKpiClick(id){
+  if(tActiveKpi===id){tActiveKpi=null; tActiveStatus=null;}
+  else{
+    tActiveKpi=id;
+    if(id==='done') tActiveStatus='done';
+    else if(id==='pending') tActiveStatus='pending';
+    else tActiveStatus=null;
+  }
+  tFiltered=tGetFiltered(); tPage=1;
+  tRenderKPIs();
+  tRenderCharts();
+  tRenderTable();
+  tUpdateBadge();
+}
+
+function tRenderCharts(){
+  Object.values(tCharts).forEach(c=>c&&c.destroy&&c.destroy()); tCharts={};
+  const tc=getComputedStyle(document.body).getPropertyValue('--text').trim()||'#e8eaf0';
+  const gc='rgba(255,255,255,0.05)';
+  // Use tFiltered if active, else tAllData
+  const chartData=(tFiltered&&tFiltered.length&&(tActiveKpi||tActivePerson||tActiveDept||tActiveStatus||tActiveFreq))?tFiltered:tAllData;
+
+  // 1. Status donut - clickable
+  const doneCount=chartData.filter(r=>tIsDone(r)).length;
+  const pendCount=chartData.length-doneCount;
+  tCharts.status=new Chart(document.getElementById('tChStatus'),{
+    type:'doughnut',
+    data:{labels:['Completed','Pending'],datasets:[{
+      data:[doneCount,pendCount],
+      backgroundColor:tActiveStatus?
+        (tActiveStatus==='done'?['#00d4aa','rgba(255,255,255,0.06)']:['rgba(255,255,255,0.06)','#f0a500']):
+        ['#00d4aa','#f0a500'],
+      borderWidth:tActiveStatus?[tActiveStatus==='done'?3:0,tActiveStatus==='pending'?3:0]:0,
+      borderColor:'#fff',hoverOffset:8
+    }]},
+    options:{
+      cutout:'62%',responsive:true,maintainAspectRatio:false,
+      onClick:(_,els)=>{if(els.length){const lbl=['done','pending'][els[0].index];tChartFilter('status',lbl);}},
+      onHover:(e,els)=>{e.native.target.style.cursor=els.length?'pointer':'default';},
+      plugins:{legend:{labels:{color:tc,padding:14,font:{size:11}}}}
+    }
+  });
+
+  // 2. Person bar - clickable
+  const persons=[...new Set(chartData.map(r=>r['Name']))].sort();
+  const personCounts=persons.map(p=>chartData.filter(r=>r['Name']===p).length);
+  tCharts.person=new Chart(document.getElementById('tChPerson'),{
+    type:'bar',
+    data:{labels:persons,datasets:[{
+      data:personCounts,
+      backgroundColor:persons.map(p=>tActivePerson?
+        (tActivePerson===p?'#00d4ff':'rgba(0,212,255,0.15)'):
+        '#00d4ff'),
+      borderRadius:6,borderSkipped:false
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      onClick:(_,els)=>{if(els.length)tChartFilter('person',persons[els[0].index]);},
+      onHover:(e,els)=>{e.native.target.style.cursor=els.length?'pointer':'default';},
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:tc,font:{size:9}},grid:{color:gc}},
+        y:{ticks:{color:tc},grid:{color:gc},beginAtZero:true}
+      }
+    }
+  });
+
+  // 3. Dept bar - clickable
+  const depts=[...new Set(chartData.map(r=>r['Department']).filter(Boolean))].sort();
+  const deptCounts=depts.map(d=>chartData.filter(r=>r['Department']===d).length);
+  const DCOLS=['#a855f7','#f0a500','#00d4aa','#00d4ff','#ff5c7c','#f472b6','#34d399'];
+  tCharts.dept=new Chart(document.getElementById('tChDept'),{
+    type:'bar',
+    data:{labels:depts,datasets:[{
+      data:deptCounts,
+      backgroundColor:depts.map((d,i)=>tActiveDept?
+        (tActiveDept===d?DCOLS[i%DCOLS.length]:'rgba(255,255,255,0.06)'):
+        DCOLS[i%DCOLS.length]),
+      borderRadius:6,borderSkipped:false
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      onClick:(_,els)=>{if(els.length)tChartFilter('dept',depts[els[0].index]);},
+      onHover:(e,els)=>{e.native.target.style.cursor=els.length?'pointer':'default';},
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:tc,font:{size:9}},grid:{color:gc}},
+        y:{ticks:{color:tc},grid:{color:gc},beginAtZero:true}
+      }
+    }
+  });
+
+  // 4. Leaderboard
+  const allStats=[...new Set(chartData.map(r=>r['Name']))].map(p=>{
+    const rows=chartData.filter(r=>r['Name']===p);
+    const d=rows.filter(r=>tIsDone(r)).length;
+    const pen=rows.length-d;
+    const dept=rows[0]?rows[0]['Department']:'';
+    return{name:p,dept,total:rows.length,done:d,pending:pen,score:+(d-pen*0.5).toFixed(1),pct:rows.length?Math.round((d/rows.length)*100):0};
+  }).sort((a,b)=>b.done-a.done);
+
+  const medals=['🥇','🥈','🥉'];
+  document.getElementById('tLeaderboard').innerHTML=`
+    <table style="width:100%;border-collapse:collapse;font-size:0.73rem">
+      <thead><tr style="color:var(--muted);border-bottom:1px solid var(--border)">
+        <th style="padding:6px 8px;text-align:left">#</th>
+        <th style="padding:6px 8px;text-align:left">NAME</th>
+        <th style="padding:6px 8px;text-align:left">DEPARTMENT</th>
+        <th style="padding:6px 8px;text-align:center">TOTAL</th>
+        <th style="padding:6px 8px;text-align:center;color:#00d4aa">DONE</th>
+        <th style="padding:6px 8px;text-align:center;color:#f0a500">PENDING</th>
+      </tr></thead>
+      <tbody>
+        ${allStats.map((p,i)=>`
+        <tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s" 
+          onclick="tChartFilter('person','${p.name}')"
+          onmouseover="this.style.background='var(--surface2)'" 
+          onmouseout="this.style.background='transparent'">
+          <td style="padding:7px 8px;font-size:1rem">${medals[i]||i+1}</td>
+          <td style="padding:7px 8px;font-weight:600;color:${tActivePerson===p.name?'#a855f7':'var(--text)'}">${p.name}</td>
+          <td style="padding:7px 8px"><span style="font-size:0.7rem;background:rgba(168,85,247,0.1);color:#a855f7;padding:2px 7px;border-radius:5px">${p.dept||'—'}</span></td>
+          <td style="padding:7px 8px;text-align:center">${p.total}</td>
+          <td style="padding:7px 8px;text-align:center;color:#00d4aa;font-weight:600">${p.done}</td>
+          <td style="padding:7px 8px;text-align:center;color:#f0a500;font-weight:600">${p.pending}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function tChartFilter(type, val){
+  if(type==='person'){
+    tActivePerson=(tActivePerson===val)?null:val;
+    document.getElementById('tFPerson').value=tActivePerson||'';
+  } else if(type==='dept'){
+    tActiveDept=(tActiveDept===val)?null:val;
+    document.getElementById('tFDept').value=tActiveDept||'';
+  } else if(type==='status'){
+    tActiveStatus=(tActiveStatus===val)?null:val;
+    if(tActiveStatus) tActiveKpi=tActiveStatus;
+    else tActiveKpi=null;
+    document.getElementById('tFStatus').value=tActiveStatus||'';
+  }
+  tFiltered=tGetFiltered(); tPage=1;
+  tRenderKPIs();
+  tRenderCharts();
+  tRenderTable();
+  tUpdateBadge();
+}
+
+function tUpdateBadge(){
+  const badge=document.getElementById('tCFBadge');
+  const parts=[];
+  if(tActivePerson) parts.push(`<strong style="color:#00d4ff">👤 ${tActivePerson}</strong>`);
+  if(tActiveDept) parts.push(`<strong style="color:#a855f7">🏢 ${tActiveDept}</strong>`);
+  if(tActiveFreq) parts.push(`<strong style="color:#34d399">🔄 ${tActiveFreq}</strong>`);
+  if(tActiveStatus) parts.push(`<strong style="color:#f0a500">${tActiveStatus==='done'?'✅ Completed':'⏳ Pending'}</strong>`);
+  if(parts.length){
+    badge.style.display='flex';
+    badge.innerHTML='🎯 Filter: '+parts.join(' + ')+' <span onclick="tClearAll()" style="cursor:pointer;color:var(--hot);margin-left:8px;font-weight:600">✕ Clear All</span>';
+  } else {
+    badge.style.display='none';
+  }
+}
+
+function tPopulateFilters(){
+  const depts=[...new Set(tAllData.map(r=>r['Department']).filter(Boolean))].sort();
+  const persons=[...new Set(tAllData.map(r=>r['Name']).filter(Boolean))].sort();
+  const freqs=[...new Set(tAllData.map(r=>r['Freq']).filter(Boolean))].sort();
+  document.getElementById('tFDept').innerHTML='<option value="">All Departments</option>'+depts.map(d=>`<option value="${d}">${d}</option>`).join('');
+  document.getElementById('tFPerson').innerHTML='<option value="">All People</option>'+persons.map(p=>`<option value="${p}">${p}</option>`).join('');
+  document.getElementById('tFFreq').innerHTML='<option value="">All Frequency</option>'+freqs.map(f=>`<option value="${f}">${f}</option>`).join('');
+}
+
+function tApply(){
+  const dept=document.getElementById('tFDept').value;
+  const person=document.getElementById('tFPerson').value;
+  const status=document.getElementById('tFStatus').value;
+  const freq=document.getElementById('tFFreq').value;
+  tActiveDept=dept||null;
+  tActivePerson=person||null;
+  tActiveStatus=status||null;
+  tActiveFreq=freq||null;
+  if(!status) tActiveKpi=null;
+  tFiltered=tGetFiltered(); tPage=1;
+  tRenderKPIs();
+  tRenderCharts();
+  tRenderTable();
+  tUpdateBadge();
+}
+
+function tClearAll(){
+  tActiveKpi=null; tActivePerson=null; tActiveDept=null; tActiveStatus=null; tActiveFreq=null;
+  document.getElementById('tSearch').value='';
+  document.getElementById('tFDept').value='';
+  document.getElementById('tFPerson').value='';
+  document.getElementById('tFFreq').value='';
+  document.getElementById('tFStatus').value='';
+  tFiltered=[...tAllData]; tPage=1;
+  tRenderKPIs();
+  tRenderCharts();
+  tRenderTable();
+  tUpdateBadge();
+}
+
+function openTaskModal(idx){
+  const r=tFiltered[idx]; if(!r)return;
+  const FORM_BASE='https://docs.google.com/forms/d/e/1FAIpQLSfybZZQnRcrwMPVcrO0ghkLTJXy04hUepl2rr2a5RvrYWB8iA/viewform';
+  // Entry IDs — update these with actual form entry IDs
+  // To find: open form > right-click field > Inspect > find entry.XXXXXXX
+  const E_TASKID   = 'entry.1413514927';   // ← Task ID field entry ID
+  const E_NAME     = 'entry.NAME_ENTRY';       // ← Name field entry ID  
+  const E_EMAIL    = 'entry.EMAIL_ENTRY';      // ← Email field entry ID
+  const E_DEPT     = 'entry.DEPT_ENTRY';       // ← Department field entry ID
+
+  const taskId=encodeURIComponent(r['Task ID']||'');
+  const name=encodeURIComponent(r['Name']||'');
+  const email=encodeURIComponent(r['Email']||'');
+  const dept=encodeURIComponent(r['Department']||'');
+
+  const formUrl=`${FORM_BASE}?usp=sf_link&${E_TASKID}=${taskId}&${E_NAME}=${name}&${E_EMAIL}=${email}&${E_DEPT}=${dept}`;
+
+  document.getElementById('taskModalContent').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.82rem">
+      <div style="background:var(--surface2);border-radius:8px;padding:10px">
+        <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Task ID</div>
+        <div style="color:#a855f7;font-weight:700">${r['Task ID']||'—'}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px">
+        <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Employee</div>
+        <div style="font-weight:600">${r['Name']||'—'}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px">
+        <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Department</div>
+        <div style="color:#00d4ff">${r['Department']||'—'}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px">
+        <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Frequency</div>
+        <div>${r['Freq']||'—'}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px;grid-column:span 2">
+        <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Task</div>
+        <div style="font-size:0.8rem">${r['Task']||'—'}</div>
+      </div>
+    </div>`;
+
+  document.getElementById('taskModalFormLink').href=formUrl;
+  document.getElementById('taskDoneModal').style.display='flex';
+}
+function closeTaskModal(){document.getElementById('taskDoneModal').style.display='none';}
+document.getElementById('taskDoneModal').addEventListener('click',function(e){if(e.target===this)closeTaskModal();});
+
+function tRenderTable(){
+  const start=(tPage-1)*T_PER_PAGE;
+  const pg=tFiltered.slice(start,start+T_PER_PAGE);
+  document.getElementById('tTblCnt').textContent=tFiltered.length+' tasks';
+  const FORM_URL='https://docs.google.com/forms/d/e/1FAIpQLSfybZZQnRcrwMPVcrO0ghkLTJXy04hUepl2rr2a5RvrYWB8iA/viewform';
+  document.getElementById('tTblBody').innerHTML=pg.map((r,i)=>{
+    const done=tIsDone(r);
+    const statusBadge=done
+      ?'<span class="badge" style="background:rgba(0,212,170,0.12);color:#00d4aa;border:1px solid rgba(0,212,170,0.25)">✅ Done</span>'
+      :'<span class="badge" style="background:rgba(240,165,0,0.1);color:#f0a500;border:1px solid rgba(240,165,0,0.2)">⏳ Pending</span>';
+    const fUrl=`${FORM_URL}?usp=sf_link&entry.1413514927=${encodeURIComponent(r['Task ID']||'')}`;
+    const actionCell=done
+      ?`<span style="color:#00d4aa;font-size:0.75rem;font-weight:600">✅ Done</span>`
+      :`<a href="${fUrl}" target="_blank"
+          style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border-radius:8px;padding:7px 10px;font-size:0.72rem;font-weight:700;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;width:100%;box-shadow:0 2px 8px rgba(168,85,247,0.4)">
+          ✅ Mark Done
+        </a>`;
+    return `<tr>
+      <td><div style="font-weight:600">${r['Name']||'—'}</div><div style="font-size:0.67rem;color:var(--muted)">${r['Email']||''}</div></td>
+      <td><span style="font-size:0.73rem;background:rgba(168,85,247,0.1);color:#a855f7;padding:3px 8px;border-radius:6px">${r['Department']||'—'}</span></td>
+      <td style="font-size:0.78rem;color:var(--muted);text-align:center;font-weight:600">${r['Task ID']||'—'}</td>
+      <td style="text-align:center"><span style="font-size:0.73rem;background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 7px;border-radius:5px">${r['Freq']||'—'}</span></td>
+      <td style="font-size:0.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r['Task']||'').replace(/"/g,'')}">${r['Task']||'—'}</td>
+      <td style="font-size:0.75rem;color:var(--muted)">${r['Planned']||'—'}</td>
+      <td style="font-size:0.75rem;color:${r['Actual']?'#00d4aa':'var(--muted)'}">${r['Actual']||'—'}</td>
+      <td>${statusBadge}</td>
+      <td style="white-space:nowrap">${actionCell}</td>
+    </tr>`;
+  }).join('');
+
+  const tp=Math.ceil((tFiltered.length||1)/T_PER_PAGE);
+  let h=`<span class="page-info">Page ${tPage} of ${tp}</span>`;
+  h+=`<button class="page-btn" onclick="tGoPage(${tPage-1})" ${tPage===1?'disabled':''}>‹</button>`;
+  for(let p=1;p<=Math.min(tp,7);p++) h+=`<button class="page-btn ${p===tPage?'active':''}" onclick="tGoPage(${p})">${p}</button>`;
+  h+=`<button class="page-btn" onclick="tGoPage(${tPage+1})" ${tPage===tp?'disabled':''}>›</button>`;
+  document.getElementById('tPagBar').innerHTML=h;
+}
+
+function tGoPage(p){
+  const tp=Math.ceil((tFiltered.length||1)/T_PER_PAGE);
+  if(p<1||p>tp) return;
+  tPage=p; tRenderTable();
+  document.querySelector('#panel-tasks .table-card').scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</script>
 
 <script>
 // ═══════════════════════════════════
@@ -1435,7 +2020,8 @@ async function doLogin(){
     if(user){
       CURRENT_USER={
         email:email,
-        role:String(user['Role']||'employee').trim().toLowerCase(),
+        role:String(user['Role']||'').trim().toLowerCase()==='owner'?'owner':'employee',
+        rawRole:String(user['Role']||'employee').trim().toLowerCase(),
         name:String(user['Name']||email.split('@')[0])
       };
       sessionStorage.setItem('aditiUser',JSON.stringify(CURRENT_USER));
@@ -1464,7 +2050,7 @@ function showPortal(){
         <div style="background:${CURRENT_USER.role==='owner'?'rgba(240,165,0,0.2)':'rgba(0,212,170,0.2)'};color:${CURRENT_USER.role==='owner'?'#f0a500':'#00d4aa'};width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.82rem;font-weight:700;flex-shrink:0">${(CURRENT_USER.name||CURRENT_USER.email)[0].toUpperCase()}</div>
         <div style="overflow:hidden">
           <div class="user-name-text" style="font-size:0.72rem;color:#e8eaf0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${CURRENT_USER.name||CURRENT_USER.email.split('@')[0]}</div>
-          <div style="font-size:0.6rem;color:#6b7280">${CURRENT_USER.role==='owner'?'👑 Owner':'👤 Employee'}</div>
+          <div style="font-size:0.6rem;color:#6b7280">${CURRENT_USER.role==='owner'?'👑 Owner':'👤 '+( (CURRENT_USER.rawRole&&CURRENT_USER.rawRole!=='employee')?CURRENT_USER.rawRole.charAt(0).toUpperCase()+CURRENT_USER.rawRole.slice(1):'Employee')}</div>
         </div>
       </div>
       <button onclick="doLogout()" style="width:100%;background:rgba(255,92,124,0.1);border:1px solid rgba(255,92,124,0.25);color:#ff5c7c;border-radius:8px;padding:8px;font-size:0.72rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.2s" onmouseover="this.style.background='rgba(255,92,124,0.25)'" onmouseout="this.style.background='rgba(255,92,124,0.1)'">
@@ -1479,7 +2065,7 @@ function showPortal(){
   const sb2 = document.getElementById('sidebarThemeBtn');
   if(sb2) sb2.textContent = (isLight ? '☀️ Light Mode' : '🌙 Dark Mode');
   // Employee restrictions
-  if(CURRENT_USER.role==='employee'){restrictEmployee();}
+  if(CURRENT_USER.role!=='owner'){restrictEmployee();}
 }
 
 function restrictEmployee(){
