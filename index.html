@@ -404,7 +404,7 @@
     </div>
     <div class="login-box" style="background:#111318;border:1px solid #222630;border-radius:20px;padding:30px;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
       <div class="welcome-text" style="font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:700;color:#e8eaf0;margin-bottom:4px">Welcome👋</div>
-      <div style="font-size:0.78rem;color:#6b7280;margin-bottom:24px">Email aur password daalo</div>
+      <div style="font-size:0.78rem;color:#6b7280;margin-bottom:24px">Enter your email and password</div>
       <div id="loginErr" style="display:none;background:rgba(255,92,124,0.1);border:1px solid rgba(255,92,124,0.3);border-radius:10px;padding:10px 14px;font-size:0.78rem;color:#ff5c7c;margin-bottom:14px"></div>
       <div style="margin-bottom:14px">
         <label style="font-size:0.68rem;color:#9ca3af;font-weight:500;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em">Email</label>
@@ -494,13 +494,13 @@
 <!-- HOME -->
 <div class="dashboard-panel active" id="panel-home">
   <div class="home-panel">
-    <div class="home-welcome">Namaste, <span>Aditi Tracking</span> 👋</div>
-    <div class="home-sub">Apna dashboard choose karo — sab live Google Sheet se connected hain.</div>
+    <div class="home-welcome">Welcome to <span>Aditi Tracking</span> 👋</div>
+    <div class="home-sub">Choose your dashboard — all live connected via Google Sheets.</div>
     <div class="home-cards">
-      <div class="home-card" style="--card-top:#f0a500" onclick="switchDB('leads')"><div class="hc-icon">📊</div><div class="hc-name">Lead Tracking Dashboard</div><div class="hc-desc">Sales leads, pipeline health, win chances, rep leaderboard aur zyada.</div><span class="hc-status live">● Live</span></div>
+      <div class="home-card" style="--card-top:#f0a500" onclick="switchDB('leads')"><div class="hc-icon">📊</div><div class="hc-name">Lead Tracking Dashboard</div><div class="hc-desc">Sales leads, pipeline health, win chances, rep leaderboard and more.</div><span class="hc-status live">● Live</span></div>
       <div class="home-card" style="--card-top:#00d4aa" onclick="switchDB('collection')"><div class="hc-icon">💰</div><div class="hc-name">Collection Dashboard</div><div class="hc-desc">Daily commitment vs achievement, MTD progress, team leaderboard.</div><span class="hc-status live">● Live</span></div>
       <div class="home-card" style="--card-top:#00d4ff" onclick="switchDB('fms')"><div class="hc-icon">🚚</div><div class="hc-name">FMS O2D Dashboard</div><div class="hc-desc">Order to delivery tracking, step-wise KPIs, PC status, prefilled form support.</div><span class="hc-status live">● Live</span></div>
-      <div class="home-card" style="--card-top:#a855f7" onclick="switchDB('tasks')"><div class="hc-icon">✅</div><div class="hc-name">Task Checklist Dashboard</div><div class="hc-desc">Department-wise tasks, completion tracking, scores aur performance.</div><span class="hc-status live">● Live</span></div>
+      <div class="home-card" style="--card-top:#a855f7" onclick="switchDB('tasks')"><div class="hc-icon">✅</div><div class="hc-name">Task Checklist Dashboard</div><div class="hc-desc">Department-wise tasks, completion tracking, scores and performance.</div><span class="hc-status live">● Live</span></div>
       <div class="home-card disabled" style="--card-top:#6b7280"><div class="hc-icon">👥</div><div class="hc-name">HR / Attendance</div><div class="hc-desc">Team attendance, leaves, performance tracking.</div><span class="hc-status soon">Coming Soon</span></div>
       <div class="home-card disabled" style="--card-top:#6b7280"><div class="hc-icon">📦</div><div class="hc-name">Inventory</div><div class="hc-desc">Stock levels, orders, and product movement.</div><span class="hc-status soon">Coming Soon</span></div>
       <div class="home-card disabled" style="--card-top:#6b7280"><div class="hc-icon">📣</div><div class="hc-name">Marketing</div><div class="hc-desc">Campaign performance, leads by source, ROI.</div><span class="hc-status soon">Coming Soon</span></div>
@@ -905,22 +905,27 @@ let lLoaded=false,cLoaded=false;
 // Pre-fetch data caches
 let _leadsCache=null, _collCache=null, _tasksCache=null, _fmsCache=null;
 let _tasksSuppCache=null, _tasksSalesCache=null;
+let _tasksAllReady=false; // true only when ALL 3 task APIs are fetched
 
 function prefetchAllData(){
   // Silently fetch all panel data in background after login
-  if(!_leadsCache){
-    fetch(L_URL).then(r=>r.json()).then(d=>{_leadsCache=d;}).catch(()=>{});
-  }
-  if(!_collCache){
-    fetch(C_URL).then(r=>r.json()).then(d=>{_collCache=d;}).catch(()=>{});
-  }
+  const _isOwner = CURRENT_USER && CURRENT_USER.role === 'owner';
+
+  // Task checklist: fetch FIRST and IMMEDIATELY (highest priority for employees)
   if(!_tasksCache){
-    fetch(TASK_API).then(r=>r.json()).then(d=>{_tasksCache=d;}).catch(()=>{});
-    fetch(SUPPORT_API).then(r=>r.json()).then(d=>{_tasksSuppCache=d;}).catch(()=>{});
-    fetch(SALES_API).then(r=>r.json()).then(d=>{_tasksSalesCache=d;}).catch(()=>{});
+    const _apisToFetch = getTaskAPIsForUser();
+    const _prefetchArr = [];
+    if(_apisToFetch.main)  _prefetchArr.push(fetch(TASK_API).then(r=>r.json()).then(d=>{_tasksCache=d;}).catch(()=>{}));
+    if(_apisToFetch.supp)  _prefetchArr.push(fetch(SUPPORT_API).then(r=>r.json()).then(d=>{_tasksSuppCache=d;}).catch(()=>{}));
+    if(_apisToFetch.sales) _prefetchArr.push(fetch(SALES_API).then(r=>r.json()).then(d=>{_tasksSalesCache=d;}).catch(()=>{}));
+    Promise.all(_prefetchArr).then(()=>{_tasksAllReady=true;});
   }
-  if(!_fmsCache){
-    fetch(FMS_API).then(r=>r.text()).then(d=>{_fmsCache=d;}).catch(()=>{});
+
+  // Owner/MIS/PC: also fetch leads, collection, FMS in background
+  if(_isOwner){
+    if(!_leadsCache) fetch(L_URL).then(r=>r.json()).then(d=>{_leadsCache=d;}).catch(()=>{});
+    if(!_collCache)  fetch(C_URL).then(r=>r.json()).then(d=>{_collCache=d;}).catch(()=>{});
+    if(!_fmsCache)   fetch(FMS_API).then(r=>r.text()).then(d=>{_fmsCache=d;}).catch(()=>{});
   }
 }
 function toggleMoreMenu(){
@@ -931,7 +936,7 @@ document.addEventListener('click',function(e){
   if(!e.target.closest('.bn-more'))document.getElementById('moreMenu').classList.remove('open');
 });
 
-function switchDB(id){
+function switchDB(id, fromPopState){
   document.querySelectorAll('.dashboard-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.bn-item').forEach(n=>n.classList.remove('active'));
@@ -944,6 +949,25 @@ function switchDB(id){
   if(id==='leads'&&!lLoaded){lLoaded=true;loadLeads();}
   if(id==='collection'&&!cLoaded){cLoaded=true;loadColl();}
   if(id==='tasks'&&!tLoaded){tLoaded=true;loadTasks();}
+  // Push history state so back button returns to home
+  if(!fromPopState){
+    if(id==='home'){
+      history.replaceState({panel:'home'},'','');
+    } else {
+      history.pushState({panel:id},'','');
+    }
+  }
+}
+
+// Handle browser/phone back button — always go to home
+window.addEventListener('popstate', function(e){
+  const panel = (e.state && e.state.panel) ? e.state.panel : 'home';
+  switchDB(panel==='home' ? 'home' : 'home', true);
+});
+
+// On portal load, set initial history state
+function initHistory(){
+  history.replaceState({panel:'home'},'','');
 }
 
 // ═══════════════════════════════════
@@ -959,7 +983,7 @@ let L=[],Lf=[],Lch={},Lp=1,Lsk=null,Lsd=1,Ltype='',Lkpi=null;
 let Lcf={leadType:null,source:null,solution:null,product:null};
 const LPP=15;
 async function loadLeads(){
-  document.getElementById('leadsTxt').textContent='Google Sheet se data fetch ho raha hai...';
+  document.getElementById('leadsTxt').textContent='Fetching data from Google Sheet...';
   try{
     let rows;
     if(_leadsCache){rows=_leadsCache;_leadsCache=null;}
@@ -1054,7 +1078,7 @@ function lRenderTable(){
   const tot=Lf.length,tp=Math.max(1,Math.ceil(tot/LPP)),pg=Lf.slice((Lp-1)*LPP,Lp*LPP);
   document.getElementById('lTblCnt').textContent=tot+' lead'+(tot!==1?'s':'');
   const tb=document.getElementById('lTblBody');
-  if(!pg.length){tb.innerHTML='<tr><td colspan="12"><div class="empty-state">Koi lead nahi mila</div></td></tr>';return;}
+  if(!pg.length){tb.innerHTML='<tr><td colspan="12"><div class="empty-state">No leads found</div></td></tr>';return;}
   tb.innerHTML=pg.map(r=>{const wc=+r['WinChances']||0;const wcc=wc>=7?'#00d4aa':wc>=4?'#f0a500':'#4e9af1';const f1=r['Follow-up 1 ']==='Yes',f2=r['Follow-up 2 ']==='Yes',f3=r['Follow-up 3']==='Yes';const bc=r['LeadType']==='Hot'?'badge-hot':r['LeadType']==='Warm'?'badge-warm':'badge-cold';const sc2=r['Won']==='Yes'?'badge-won':r['Lost']?'badge-lost':'badge-open';const st=r['Won']==='Yes'?'✓ Won':r['Lost']?'✗ Lost':'● Open';const ov=r['Order Value']?'₹'+(+r['Order Value']).toLocaleString('en-IN'):'—';return`<tr><td><div style="font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis">${(r['CustomerName']||'—').slice(0,22)}</div><div style="font-size:0.67rem;color:var(--muted)">${r['Source']||''}</div></td><td style="font-size:0.73rem">${(r['Source']||'—').replace('CustomerReferral','Referral')}</td><td><span style="font-size:0.73rem;color:#a78bfa">${r['Solution']||'—'}</span></td><td style="font-size:0.7rem;color:var(--muted)">${(r['Hero Product']||'—').slice(0,18)}</td><td><div class="wc-wrap"><div class="wc-bar"><div class="wc-fill" style="width:${wc*10}%;background:${wcc}"></div></div><span style="font-size:0.72rem;font-weight:600;color:${wcc}">${wc}/10</span></div></td><td><span class="badge ${bc}">${r['LeadType']}</span></td><td><span style="font-size:0.73rem;color:${r['IstheDemoGiven']==='Yes'?'var(--won)':'var(--muted)'}">${r['IstheDemoGiven']==='Yes'?'✓ Yes':'✗ No'}</span></td><td><div class="fu-dots"><div class="fu-dot ${f1?'done':''}"></div><div class="fu-dot ${f2?'done':''}"></div><div class="fu-dot ${f3?'done':''}"></div></div></td><td><span style="font-size:0.73rem;color:${r['Quotation Sent']==='Yes'?'var(--won)':'var(--muted)'}">${r['Quotation Sent']==='Yes'?'✓ Sent':r['Quotation Sent']==='No'?'✗ No':'—'}</span></td><td><span class="badge ${sc2}">${st}</span></td><td style="font-weight:600;color:${r['Order Value']?'var(--accent)':'var(--muted)'}">${ov}</td><td><div class="rep-info"><div class="rep-dot" style="background:${rB(r['Emailaddress'])};color:${rC(r['Emailaddress'])}">${rI(r['Emailaddress'])}</div><span style="font-size:0.73rem">${rN(r['Emailaddress'])}</span></div></td></tr>`;}).join('');
   const bar=document.getElementById('lPagBar');if(tp<=1){bar.innerHTML='';return;}
   let h='<span class="page-info">Page '+Lp+' of '+tp+'</span><button class="page-btn" onclick="lGoPage('+(Lp-1)+')" '+(Lp===1?'disabled':'')+'>‹</button>';
@@ -1074,7 +1098,7 @@ let C_tSearch='',C_tDate='',C_tStatus='';
 const CPP=20;
 
 async function loadColl(){
-  document.getElementById('cTxt').textContent='Google Sheet se data fetch ho raha hai...';
+  document.getElementById('cTxt').textContent='Fetching data from Google Sheet...';
   try{
     let rows;
     if(_collCache){rows=_collCache;_collCache=null;}
@@ -1093,7 +1117,7 @@ async function loadColl(){
       r['_month']=r['Month Name']||d.slice(0,7);
       return r;
     }).filter(r=>r['Name']&&String(r['Name']).trim()!=='');
-    if(!C.length) throw new Error('Data nahi mila — sheet empty ho sakti hai');
+    if(!C.length) throw new Error('No data found — sheet may be empty');
     document.getElementById('cLoad').style.display='none';
     document.getElementById('cCont').style.display='block';
     document.getElementById('cSync').textContent='Sync: '+new Date().toLocaleTimeString('en-IN');
@@ -1322,7 +1346,7 @@ function cRenderTable(){
   const pg=Cf.slice((Cp-1)*CPP,Cp*CPP);
   document.getElementById('cTblCnt').textContent=tot+' record'+(tot!==1?'s':'');
   const tb=document.getElementById('cTblBody');
-  if(!pg.length){tb.innerHTML='<tr><td colspan="13"><div class="empty-state">Koi record nahi mila</div></td></tr>';return;}
+  if(!pg.length){tb.innerHTML='<tr><td colspan="13"><div class="empty-state">No records found</div></td></tr>';return;}
   tb.innerHTML=pg.map(r=>{
     const co=r['Commitment'],ac=r['Achivment'];
     const pct=co?((ac/co)*100).toFixed(1):0;
@@ -1392,7 +1416,7 @@ async function fmsLoadData(){
       doerEmail: gv(r,'Final Doer Email','finalDoerEmail','Doer Email','doerEmail'),
       productName: gv(r,'Product Name','productName'),
     })).filter(r=>r.uniqueKey&&r.uniqueKey!='#N/A'&&!r.uniqueKey.includes('#N/A'));
-    if(!fmsAllData.length){document.getElementById('fTableBody').innerHTML='<div style="padding:2rem;text-align:center;color:var(--muted)">Koi data nahi mila</div>';return;}
+    if(!fmsAllData.length){document.getElementById('fTableBody').innerHTML='<div style="padding:2rem;text-align:center;color:var(--muted)">No data found</div>';return;}
     document.getElementById('fmsLastRefresh').textContent='Updated '+new Date().toLocaleTimeString();
     fmsProcessData();
   }catch(e){document.getElementById('fTableBody').innerHTML=`<div style="padding:2rem;text-align:center;color:var(--hot)">❌ ${e.message} <button onclick="fmsLoadData()" style="margin-left:1rem;padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Retry</button></div>`;}
@@ -1505,7 +1529,7 @@ function fmsApplySearch(){
 }
 
 function fmsRenderTable(){
-  if(!fmsFiltered.length){document.getElementById('fTableBody').innerHTML='<div style="padding:2rem;text-align:center;color:var(--muted)">Koi data nahi mila 😕</div>';document.getElementById('fPagination').style.display='none';return;}
+  if(!fmsFiltered.length){document.getElementById('fTableBody').innerHTML='<div style="padding:2rem;text-align:center;color:var(--muted)">No data found 😕</div>';document.getElementById('fPagination').style.display='none';return;}
   const start=(fmsPage-1)*FMS_PER_PAGE;
   const rows=fmsFiltered.slice(start,start+FMS_PER_PAGE).map((r,i)=>{
     const pcB=(r.forPC||'').toLowerCase()==='yes'?'<span class="fms-badge-yes">✓ Yes</span>':'<span class="fms-badge-no">✗ No</span>';
@@ -1558,6 +1582,27 @@ function fmsExportCSV(){
 const TASK_API = 'https://script.google.com/macros/s/AKfycbwzCJ_USWjj18Dj5Xtu1LUacso3H6oLKt0euvYVdByVsv1C2Zr9mtHPc48sAb9h5Fc/exec';
 const SUPPORT_API = 'https://script.google.com/macros/s/AKfycbwjr2vw4hhahlrLO3R5qGy2Se8JLHmzhNpXhqvPOZZiePKq0QwwGMijJRAvVC84-Vox/exec';
 const SALES_API = 'https://script.google.com/macros/s/AKfycbzFjQuvVpFYdBer5GvJM0JSRgiEi9hYiGdL1zRrpPz7cwIar8P47PnL00DKMFPudOcy/exec';
+
+// Department → sheet mapping
+// TASK_API    = Collection, HR, Finance, Accounts (Sheet 3)
+// SUPPORT_API = Support (Sheet 2)
+// SALES_API   = Sales (Sheet 1)
+// Owner/MIS/PC = fetch all 3
+function getTaskAPIsForUser(){
+  if(!CURRENT_USER) return {main:true, supp:true, sales:true};
+  // Full access roles always get all sheets
+  if(CURRENT_USER.role==='owner') return {main:true, supp:true, sales:true};
+  // For employees: decide based on rawRole / department
+  const role=(CURRENT_USER.rawRole||'').toLowerCase().trim();
+  const salesRoles   = ['sales'];
+  const supportRoles = ['support'];
+  const mainRoles    = ['collection','hr','finance','accounts','collections'];
+  if(salesRoles.includes(role))   return {main:false, supp:false, sales:true};
+  if(supportRoles.includes(role)) return {main:false, supp:true,  sales:false};
+  if(mainRoles.includes(role))    return {main:true,  supp:false, sales:false};
+  // Unknown role: fetch all to be safe
+  return {main:true, supp:true, sales:true};
+}
 let tAllData=[], tFiltered=[], tPage=1, tLoaded=false;
 const T_PER_PAGE=20;
 let tCharts={};
@@ -1613,6 +1658,9 @@ async function loadTasks(){
           if(rName&&myName&&rName===myName)return true;
           // Priority 3: name without extra spaces / case variation
           if(rName&&myName&&rName.replace(/\s+/g,' ')===myName.replace(/\s+/g,' '))return true;
+          // Priority 4: email local part exact match (before @)
+          const myEmailLocal=myEmail.split('@')[0].toLowerCase();
+          if(myEmailLocal&&rEmail&&rEmail.split('@')[0]===myEmailLocal)return true;
           return false;
         });
         console.log('[Filter result]', tAllData.length, 'tasks found');
@@ -1623,13 +1671,13 @@ async function loadTasks(){
           if(warn){
             warn.style.display='block';
             warn.innerHTML=`<div style="background:rgba(255,92,124,0.08);border:1px solid rgba(255,92,124,0.3);border-radius:12px;padding:16px 20px;margin:16px 0">
-              <div style="color:#ff5c7c;font-weight:700;margin-bottom:8px">⚠️ Koi task nahi mila!</div>
+              <div style="color:#ff5c7c;font-weight:700;margin-bottom:8px">⚠️ No tasks found!</div>
               <div style="font-size:0.78rem;margin-bottom:6px">Login email: <b style="color:#f0a500">${myEmail}</b> &nbsp;|&nbsp; Login name: <b style="color:#f0a500">${myName}</b></div>
-              <div style="font-size:0.72rem;color:var(--muted);margin-bottom:6px">Sheet mein yeh names hain:</div>
+              <div style="font-size:0.72rem;color:var(--muted);margin-bottom:6px">Names in sheet:</div>
               <div style="font-size:0.72rem;color:#e8eaf0;margin-bottom:6px">${allNames.slice(0,20).join(' &nbsp;|&nbsp; ')}</div>
-              <div style="font-size:0.72rem;color:var(--muted);margin-bottom:6px">Sheet mein yeh emails hain:</div>
+              <div style="font-size:0.72rem;color:var(--muted);margin-bottom:6px">Emails in sheet:</div>
               <div style="font-size:0.72rem;color:#e8eaf0;margin-bottom:8px">${allEmails.slice(0,20).join(' &nbsp;|&nbsp; ')}</div>
-              <div style="font-size:0.72rem;color:#f0a500">👆 Login email/name aur sheet ka naam bilkul same hona chahiye (spelling, spaces sab)!</div>
+              <div style="font-size:0.72rem;color:#f0a500">👆 Login email/name must exactly match the name in the sheet (spelling, spaces — everything)!</div>
             </div>`;
           }
         }
@@ -1642,44 +1690,33 @@ async function loadTasks(){
       document.getElementById('tasksSync').textContent='Updated '+new Date().toLocaleTimeString();
     }
 
-    // Use cache if available
-    if(_tasksCache){mainRaw=_tasksCache;_tasksCache=null;}
-    if(_tasksSuppCache){suppRaw=_tasksSuppCache;_tasksSuppCache=null;}
-    if(_tasksSalesCache){salesRaw=_tasksSalesCache;_tasksSalesCache=null;}
-
-    // If we have at least main data cached, show immediately
-    if(mainRaw.length>0){
+    // Use cache if prefetch already completed — instant render, no wait
+    const _cacheApis = getTaskAPIsForUser();
+    if(_tasksAllReady){
+      if(_tasksCache)      {mainRaw=_tasksCache;_tasksCache=null;}
+      if(_tasksSuppCache)  {suppRaw=_tasksSuppCache;_tasksSuppCache=null;}
+      if(_tasksSalesCache) {salesRaw=_tasksSalesCache;_tasksSalesCache=null;}
+      _tasksAllReady=false;
       mergeAndRender();
-      firstDataShown=true;
+      return; // instant — no fetch needed
     }
 
-    // Fetch missing data in parallel
+    // Partial cache: use whatever is ready, fetch only what's missing
+    if(_cacheApis.main   && _tasksCache)     {mainRaw=_tasksCache;_tasksCache=null;}
+    if(_cacheApis.supp   && _tasksSuppCache) {suppRaw=_tasksSuppCache;_tasksSuppCache=null;}
+    if(_cacheApis.sales  && _tasksSalesCache){salesRaw=_tasksSalesCache;_tasksSalesCache=null;}
+
+    // Fetch only the sheets still missing
     const fetches=[];
-    if(!mainRaw.length) fetches.push(fetch(TASK_API).then(r=>r.json()).then(d=>{mainRaw=d;}).catch(()=>{}));
-    if(!suppRaw.length) fetches.push(fetch(SUPPORT_API).then(r=>r.json()).then(d=>{suppRaw=d;}).catch(()=>{}));
-    if(!salesRaw.length) fetches.push(fetch(SALES_API).then(r=>r.json()).then(d=>{salesRaw=d;}).catch(()=>{}));
+    if(_cacheApis.main  && !mainRaw.length)  fetches.push(fetch(TASK_API).then(r=>r.json()).then(d=>{mainRaw=d;}).catch(()=>{}));
+    if(_cacheApis.supp  && !suppRaw.length)  fetches.push(fetch(SUPPORT_API).then(r=>r.json()).then(d=>{suppRaw=d;}).catch(()=>{}));
+    if(_cacheApis.sales && !salesRaw.length) fetches.push(fetch(SALES_API).then(r=>r.json()).then(d=>{salesRaw=d;}).catch(()=>{}));
 
     if(fetches.length>0){
-      // Show partial data as soon as FIRST fetch completes (race)
-      if(!firstDataShown){
-        // Race: whichever API responds first, show data immediately
-        let raceResolved=false;
-        const racePromises=fetches.map(p=>p.then(()=>{
-          if(!raceResolved){
-            raceResolved=true;
-            mergeAndRender();
-            firstDataShown=true;
-          }
-        }));
-        // Wait for all to complete then do final re-render
-        await Promise.allSettled(fetches);
-      } else {
-        await Promise.allSettled(fetches);
-      }
-      // Final render with all data
-      mergeAndRender();
-      return; // skip duplicate render below
+      await Promise.allSettled(fetches);
     }
+    mergeAndRender();
+    return;
 
   }catch(e){
     document.getElementById('tasksLoad').style.display='none';
@@ -2142,7 +2179,7 @@ async function doLogin(){
   const pass=document.getElementById('loginPass').value.trim();
   const btn=document.getElementById('loginBtn');
   const err=document.getElementById('loginErr');
-  if(!email||!pass){err.style.display='block';err.textContent='⚠️ Email aur password dono daalo!';return;}
+  if(!email||!pass){err.style.display='block';err.textContent='⚠️ Please enter both email and password!';return;}
   btn.textContent='Checking...';btn.style.opacity='0.7';btn.disabled=true;err.style.display='none';
   try{
     // Use pre-fetched cache if available, else wait for ongoing fetch, else fetch fresh
@@ -2173,20 +2210,67 @@ async function doLogin(){
       showPortal();
     } else {
       err.style.display='block';
-      err.textContent='❌ Email ya password galat hai!';
+      err.textContent='❌ Incorrect email or password!';
       btn.textContent='Login →';btn.style.opacity='1';btn.disabled=false;
     }
   }catch(e){
     err.style.display='block';
-    err.textContent='⚠️ Server error — dobara try karo!';
+    err.textContent='⚠️ Server error — please try again!';
     btn.textContent='Login →';btn.style.opacity='1';btn.disabled=false;
   }
+}
+
+function showGreetingAnimation(name){
+  const overlay=document.createElement('div');
+  overlay.id='greetingOverlay';
+  overlay.style.cssText=`
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.85);z-index:99999;
+    display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:12px;
+    animation:greetFadeIn 0.4s ease;
+  `;
+  overlay.innerHTML=`
+    <div id="greetText" style="
+      font-size:clamp(2rem,7vw,4rem);font-weight:800;
+      color:#f0a500;text-align:center;padding:0 20px;
+      font-family:'DM Sans',sans-serif;letter-spacing:1px;
+      animation:greetBounce 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;
+      text-shadow:0 0 40px rgba(240,165,0,0.6),0 0 80px rgba(240,165,0,0.3);
+    ">👋 Hello, ${name}!</div>
+    <div style="
+      font-size:clamp(0.9rem,3vw,1.2rem);color:rgba(240,165,0,0.7);
+      font-family:'DM Sans',sans-serif;letter-spacing:2px;
+      animation:greetBounce 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.4s both;
+    ">Welcome back ✨</div>
+  `;
+  // Inject keyframes
+  if(!document.getElementById('greetKeyframes')){
+    const style=document.createElement('style');
+    style.id='greetKeyframes';
+    style.textContent=`
+      @keyframes greetFadeIn{from{opacity:0}to{opacity:1}}
+      @keyframes greetBounce{from{opacity:0;transform:scale(0.5) translateY(30px)}to{opacity:1;transform:scale(1) translateY(0)}}
+      @keyframes greetFadeOut{from{opacity:1}to{opacity:0}}
+    `;
+    document.head.appendChild(style);
+  }
+  document.body.appendChild(overlay);
+  // Auto remove after 2.2s with fade out
+  setTimeout(()=>{
+    overlay.style.animation='greetFadeOut 0.5s ease forwards';
+    setTimeout(()=>overlay.remove(),500);
+  },2200);
 }
 
 function showPortal(){
   document.getElementById('loginPage').style.display='none';
   const portal=document.getElementById('mainPortal');
   portal.classList.add('visible');
+  // Init browser history so back button goes to home, not logout
+  initHistory();
+  // Show greeting animation
+  showGreetingAnimation(CURRENT_USER.name||CURRENT_USER.email.split('@')[0]);
   // Add user info + logout to sidebar
   const sb=document.getElementById('sidebarBottom');
   if(sb){
@@ -2212,20 +2296,27 @@ function showPortal(){
   // Employee restrictions
   if(CURRENT_USER.role!=='owner'){restrictEmployee();}
   // Pre-fetch all dashboard data in background
-  setTimeout(prefetchAllData, 300);
+  setTimeout(prefetchAllData, 0);
 }
 
 function restrictEmployee(){
-  // Hide FMS from employee
-  const navFms=document.getElementById('nav-fms');
-  if(navFms)navFms.style.display='none';
-  const bnFms=document.getElementById('bn-fms');
-  if(bnFms)bnFms.style.display='none';
-  // Hide FMS card on home
-  document.querySelectorAll('.home-card').forEach(card=>{
-    if(card.textContent.includes('FMS'))card.style.display='none';
+  // Hide all dashboards from sidebar except Task Checklist
+  ['nav-leads','nav-collection','nav-fms'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display='none';
   });
-  // Store email for data filtering
+  // Hide all bottom nav items except Task Checklist
+  ['bn-leads','bn-collection','bn-fms'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display='none';
+  });
+  // On home: hide all live cards except Task Checklist
+  document.querySelectorAll('.home-card:not(.disabled)').forEach(card=>{
+    if(!card.textContent.includes('Task Checklist')){
+      card.style.display='none';
+    }
+  });
+  // Stay on home — user must click Task Checklist card to open it
   window.EMPLOYEE_EMAIL=CURRENT_USER.email;
 }
 
