@@ -2161,7 +2161,7 @@ function warmupAPIs(){
 }
 
 window.addEventListener('load',function(){
-  const saved=sessionStorage.getItem('aditiUser');
+  const saved=localStorage.getItem('aditiUser');
   if(saved){CURRENT_USER=JSON.parse(saved);showPortal();}
   // Always warm up APIs in background
   warmupAPIs();
@@ -2206,7 +2206,7 @@ async function doLogin(){
         rawRole:_rawR,
         name:String(user['Name']||email.split('@')[0])
       };
-      sessionStorage.setItem('aditiUser',JSON.stringify(CURRENT_USER));
+      localStorage.setItem('aditiUser',JSON.stringify(CURRENT_USER));
       showPortal();
     } else {
       err.style.display='block';
@@ -2342,7 +2342,7 @@ function toggleTheme(){
 })();
 
 function doLogout(){
-  sessionStorage.removeItem('aditiUser');
+  localStorage.removeItem('aditiUser');
   CURRENT_USER=null;
   location.reload();
 }
