@@ -293,12 +293,9 @@ async function ruLoadCalendarCalls() {
     // comment in loadRenewalsMyCustomers for why an IN-list breaks at
     // Goa's ~1000-customer scale.
     const scopeQuery = (_ruIsMIS || _ruFullDataAccess) ? '' : `&crm_customers.assigned_crm_person_id=eq.${_ruCrmPerson.id}`;
-    const res = await fetch(
+    const rows = await _ruFetchAllRows(
       `${SUPABASE_URL}/rest/v1/collection_calls?select=customer_id,call_date,connected,conversation_notes,not_connected_reason,crm_customers!inner(location)&crm_customers.location=eq.${encodeURIComponent(_ruLocation)}${scopeQuery}&call_date=gte.${start}&call_date=lte.${end}&order=call_date.asc`,
-      { headers: SB_HDRS() },
     );
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const rows = await res.json();
     _ruCalendarCallsMap = new Map(rows.map(r => [`${r.customer_id}|${r.call_date}`, r]));
   } catch (e) {
     console.error('ruLoadCalendarCalls failed:', e);
@@ -1085,6 +1082,31 @@ async function ruAssign(id) {
   }
 }
 
+// Fetches every row for a location/status-scoped query, paging past
+// PostgREST's default max-rows cap (commonly 1000) instead of assuming one
+// request returns everything. That assumption silently truncates once a
+// table crosses the cap for a given filter — no error, no Content-Range
+// check, just a short result — which is exactly what happened to Goa's
+// crm_customers/latest_outstanding_snapshots once it passed 1000 rows.
+// Explicit Range headers override the server default regardless of what
+// it's configured to, and paging stops as soon as a page comes back short.
+async function _ruFetchAllRows(url, pageSize = 1000) {
+  const rows = [];
+  let offset = 0;
+  while (true) {
+    const res = await fetch(url, {
+      headers: { ...SB_HDRS(), 'Range-Unit': 'items', 'Range': `${offset}-${offset + pageSize - 1}` },
+    });
+    if (res.status === 416) break; // offset landed exactly on the end of a full multiple of pageSize
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const page = await res.json();
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    offset += pageSize;
+  }
+  return rows;
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // TAB: My Customers
 // ═══════════════════════════════════════════════════════════════════════
@@ -1102,12 +1124,9 @@ async function loadRenewalsMyCustomers() {
     // CRM person (migration 0020) does too, just without MIS's other tabs;
     // a regular CRM person still only sees their own assigned book.
     const scopeQuery = (_ruIsMIS || _ruFullDataAccess) ? '' : `&assigned_crm_person_id=eq.${_ruCrmPerson.id}`;
-    const custRes = await fetch(
+    const customers = await _ruFetchAllRows(
       `${SUPABASE_URL}/rest/v1/crm_customers?select=*&order=billing_name.asc&location=eq.${encodeURIComponent(_ruLocation)}${scopeQuery}`,
-      { headers: SB_HDRS() },
     );
-    if (!custRes.ok) throw new Error('crm_customers: HTTP ' + custRes.status);
-    const customers = await custRes.json();
 
     if (!customers.length) {
       container.innerHTML = `<p style="color:var(--muted);font-size:0.88rem;">${(_ruIsMIS || _ruFullDataAccess) ? 'No customers found.' : 'No customers assigned to you yet.'}</p>`;
@@ -1120,17 +1139,13 @@ async function loadRenewalsMyCustomers() {
     // IN-list past the API gateway's URL-length limit and gets rejected
     // with an opaque 400 before it's even parsed.
     const callScopeQuery = (_ruIsMIS || _ruFullDataAccess) ? '' : `&crm_customers.assigned_crm_person_id=eq.${_ruCrmPerson.id}`;
-    const [snapRes, callRes, personsRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/latest_outstanding_snapshots?location=eq.${encodeURIComponent(_ruLocation)}&select=customer_id,grand_total`, { headers: SB_HDRS() }),
-      fetch(`${SUPABASE_URL}/rest/v1/latest_collection_calls?select=customer_id,call_date,connected,crm_customers!inner(location)&crm_customers.location=eq.${encodeURIComponent(_ruLocation)}${callScopeQuery}`, { headers: SB_HDRS() }),
+    const [snaps, calls, personsRes] = await Promise.all([
+      _ruFetchAllRows(`${SUPABASE_URL}/rest/v1/latest_outstanding_snapshots?location=eq.${encodeURIComponent(_ruLocation)}&select=customer_id,grand_total`),
+      _ruFetchAllRows(`${SUPABASE_URL}/rest/v1/latest_collection_calls?select=customer_id,call_date,connected,crm_customers!inner(location)&crm_customers.location=eq.${encodeURIComponent(_ruLocation)}${callScopeQuery}`),
       fetch(`${SUPABASE_URL}/rest/v1/crm_persons?is_active=eq.true&location=eq.${encodeURIComponent(_ruLocation)}&select=id,name&order=name.asc`, { headers: SB_HDRS() }),
     ]);
-    if (!snapRes.ok) throw new Error('latest_outstanding_snapshots: HTTP ' + snapRes.status);
-    if (!callRes.ok) throw new Error('latest_collection_calls: HTTP ' + callRes.status);
     if (!personsRes.ok) throw new Error('crm_persons: HTTP ' + personsRes.status);
 
-    const snaps = await snapRes.json();
-    const calls = await callRes.json();
     _ruAllPersons = await personsRes.json();
 
     const snapMap = new Map(snaps.map(s => [s.customer_id, s]));
@@ -2324,12 +2339,9 @@ async function loadRenewalsClosedPaid() {
 
   try {
     const scopeQuery = (_ruIsMIS || _ruFullDataAccess) ? '' : `&assigned_crm_person_id=eq.${_ruCrmPerson.id}`;
-    const custRes = await fetch(
+    const customers = await _ruFetchAllRows(
       `${SUPABASE_URL}/rest/v1/crm_customers?select=id,billing_name,category,assigned_crm_person_id&order=billing_name.asc&location=eq.${encodeURIComponent(_ruLocation)}${scopeQuery}`,
-      { headers: SB_HDRS() },
     );
-    if (!custRes.ok) throw new Error('crm_customers: HTTP ' + custRes.status);
-    const customers = await custRes.json();
 
     if (!customers.length) {
       _ruClosedPaid = [];
@@ -2340,14 +2352,12 @@ async function loadRenewalsClosedPaid() {
     // Filtered by location directly rather than an IN-list of customer_id —
     // see the identical comment in loadRenewalsMyCustomers for why an
     // IN-list breaks at Goa's ~1000-customer scale.
-    const [snapRes, personsRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/latest_outstanding_snapshots?location=eq.${encodeURIComponent(_ruLocation)}&select=customer_id,grand_total`, { headers: SB_HDRS() }),
+    const [snaps, personsRes] = await Promise.all([
+      _ruFetchAllRows(`${SUPABASE_URL}/rest/v1/latest_outstanding_snapshots?location=eq.${encodeURIComponent(_ruLocation)}&select=customer_id,grand_total`),
       fetch(`${SUPABASE_URL}/rest/v1/crm_persons?is_active=eq.true&location=eq.${encodeURIComponent(_ruLocation)}&select=id,name&order=name.asc`, { headers: SB_HDRS() }),
     ]);
-    if (!snapRes.ok) throw new Error('latest_outstanding_snapshots: HTTP ' + snapRes.status);
     if (!personsRes.ok) throw new Error('crm_persons: HTTP ' + personsRes.status);
 
-    const snaps = await snapRes.json();
     _ruAllPersons = await personsRes.json();
     const snapMap = new Map(snaps.map(s => [s.customer_id, s]));
 
@@ -2474,12 +2484,9 @@ async function loadRenewalsUnassignedPool() {
   container.innerHTML = '<p style="color:var(--muted);font-size:0.88rem;">Loading…</p>';
 
   try {
-    const custRes = await fetch(
+    const customers = await _ruFetchAllRows(
       `${SUPABASE_URL}/rest/v1/crm_customers?assigned_crm_person_id=is.null&select=id,billing_name,city,contact_person,contact_number,category&order=billing_name.asc&location=eq.${encodeURIComponent(_ruLocation)}`,
-      { headers: SB_HDRS() },
     );
-    if (!custRes.ok) throw new Error('crm_customers: HTTP ' + custRes.status);
-    const customers = await custRes.json();
 
     // Already have the exact count from this fetch — no need for a second
     // HEAD request just to refresh the tab-button badge.
@@ -2495,14 +2502,12 @@ async function loadRenewalsUnassignedPool() {
     // Filtered by location directly rather than an IN-list of customer_id —
     // see the identical comment in loadRenewalsMyCustomers for why an
     // IN-list breaks at Goa's ~1000-customer scale.
-    const [snapRes, personsRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/latest_outstanding_snapshots?location=eq.${encodeURIComponent(_ruLocation)}&select=customer_id,grand_total`, { headers: SB_HDRS() }),
+    const [snaps, personsRes] = await Promise.all([
+      _ruFetchAllRows(`${SUPABASE_URL}/rest/v1/latest_outstanding_snapshots?location=eq.${encodeURIComponent(_ruLocation)}&select=customer_id,grand_total`),
       fetch(`${SUPABASE_URL}/rest/v1/crm_persons?is_active=eq.true&location=eq.${encodeURIComponent(_ruLocation)}&select=id,name&order=name.asc`, { headers: SB_HDRS() }),
     ]);
-    if (!snapRes.ok) throw new Error('latest_outstanding_snapshots: HTTP ' + snapRes.status);
     if (!personsRes.ok) throw new Error('crm_persons: HTTP ' + personsRes.status);
 
-    const snaps = await snapRes.json();
     _ruUnassignedPersons = await personsRes.json();
     const snapMap = new Map(snaps.map(s => [s.customer_id, s]));
 
@@ -3443,15 +3448,13 @@ async function loadRenewalsAccounts() {
     // No &location=eq.${_ruLocation} anywhere in this loader — Accounts sees
     // flagged customers across every location, the one exception to every
     // other tab's per-loader location scoping.
-    const [custRes, personsRes, employeesRes] = await Promise.all([
-      fetch(
+    const [customers, personsRes, employeesRes] = await Promise.all([
+      _ruFetchAllRows(
         `${SUPABASE_URL}/rest/v1/crm_customers?select=id,billing_name,location,category,assigned_crm_person_id,accounts_flag_status,accounts_flagged_at,accounts_flagged_by,accounts_resolved_at,accounts_resolved_by&accounts_flag_status=${statusFilter}&order=accounts_flagged_at.desc`,
-        { headers: SB_HDRS() },
       ),
       fetch(`${SUPABASE_URL}/rest/v1/crm_persons?is_active=eq.true&select=id,name,email`, { headers: SB_HDRS() }),
       fetch(`${SUPABASE_URL}/rest/v1/Employee_details?select=Employee_name,Email_Id`, { headers: SB_HDRS() }),
     ]);
-    if (!custRes.ok) throw new Error('crm_customers: HTTP ' + custRes.status);
     if (!personsRes.ok) throw new Error('crm_persons: HTTP ' + personsRes.status);
     // Employee_details failing isn't fatal — Flagged/Resolved By just falls
     // back to raw emails for names it can't resolve, same as before this change.
@@ -3463,7 +3466,6 @@ async function loadRenewalsAccounts() {
       });
     }
 
-    const customers = await custRes.json();
     const persons = await personsRes.json();
     _ruAccountsPersonsById = {};
     _ruAccountsPersonsByEmail = {};
