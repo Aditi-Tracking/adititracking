@@ -522,12 +522,22 @@ function showPortal(){
   _applyFinanceNavVisibility();
   // Activity Log nav — sirf MIS aur Managing Director ke liye
   _applyActLogNavVisibility();
-  // Access Control nav — only for owner or MIS role
+  // Access Control nav — MIS role ONLY. Deliberate business rule (not a bug,
+  // not the same check as owner/MD recognition elsewhere — e.g. Cost Master's
+  // is_pricing_admin() is untouched): the MD/owner used to also pass this
+  // check (see the ConnectionTerminated investigation this fixed), and that
+  // was intentionally correct at the time — this is a separate, later
+  // decision to narrow the panel to MIS specifically.
+  // CURRENT_USER.rawRole is the RAW Employee_Dept string once the backend's
+  // /api/permissions response lands (backend/api.py's fetch_user_permissions
+  // returns the un-mapped dept, not a normalized key), so a real MIS user's
+  // rawRole is literally "mis" both before and after that response arrives
+  // (unlike "managing director", nothing here ever normalizes it to "owner").
   const _acpNav = document.getElementById('nav-adminperms');
   const _acpMobNav = document.getElementById('mm-adminperms');
   if (_acpNav || _acpMobNav) {
     const _rawRole = String((CURRENT_USER && (CURRENT_USER.rawRole || CURRENT_USER.role)) || '').toLowerCase().trim();
-    const _hasAccess = (_rawRole === 'owner' || _rawRole === 'mis');
+    const _hasAccess = (_rawRole === 'mis');
     if (_acpNav) _acpNav.style.display = _hasAccess ? '' : 'none';
     if (_acpMobNav) _acpMobNav.style.display = _hasAccess ? 'flex' : 'none';
   }

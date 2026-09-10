@@ -1,5 +1,5 @@
 requests
-supabase
+supabase==2.31.0
 schedule
 urllib3
 flask

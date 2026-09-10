@@ -56,6 +56,12 @@ const _permLabels = {
   hr_employee_view:           '🧑‍💼 HR Employee Master — View',
   hr_employee_edit:           '🧑‍💼 HR Employee Master — Edit',
   home_content_manage:        '🏠 Home Content — Manage Sections & Cards',
+  can_view_pricing:           '💰 Deal Calculator',
+  // Toggling this ALSO writes/deletes a row in pricing_admin_users on the
+  // backend (Cost Master's real RLS boundary) — see save_user_permission()
+  // in backend/api.py. The value shown here always mirrors that table
+  // directly (not a plain user_permissions read) so it can never drift.
+  can_access_cost_master:     '🔐 Cost Master (Pricing Admin)',
 };
 
 async function loadAdminPermsPanel() {

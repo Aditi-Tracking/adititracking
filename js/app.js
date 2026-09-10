@@ -440,6 +440,7 @@ function switchDB(id, fromPopState){
   if(id==='fieldservice') { loadFieldService(); }
   if(id==='hremployee')  { loadHREmployeeMaster(); }
   if(id==='taskdelegation') { loadTaskDelegation(); }
+  if(id==='dealpricing') { loadDealPricing(); }
   if(id==='announcements') { /* handled by override below */ }
   if(id==='activitylog') { loadActivityLog(); }
   if(id==='itadmin')    { loadSimpleCNPanel('itadmin',    'IT Admin');   }

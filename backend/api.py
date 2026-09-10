@@ -10,8 +10,10 @@
 
 from flask import Flask, request, jsonify   # Flask web framework
 from flask_cors import CORS                  # allows your frontend to call this server
-from supabase import create_client          # Supabase Python client
+from supabase import create_client, ClientOptions  # Supabase Python client
+import httpx
 import os                                   # to read environment variables
+import time
 
 # ── App setup ───────────────────────────────────────────────────
 app = Flask(__name__)
@@ -32,11 +34,28 @@ SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 # Validate that service key is present before trying to connect.
 # If missing, log a clear error but do NOT crash — Flask still starts.
 # This means smartfleet_sync.py keeps running even if this key is missing.
+#
+# http2=False: postgrest-py (and storage3-py) hardcode http2=True on the
+# httpx.Client they build internally when no http_client is supplied —
+# confirmed by reading postgrest/_sync/client.py directly. In production
+# this has been resetting mid-request (h2's ConnectionTerminated / httpx's
+# "Server disconnected"), causing intermittent 500s on /api/permissions and
+# /api/admin/all-users-permissions, and — since is_admin() below swallows
+# the same exception into a plain `return False` — intermittent 403s too.
+# Passing our own httpx.Client(http2=False, ...) via ClientOptions forces
+# HTTP/1.1 for every Supabase call this service makes, sidestepping the
+# whole class of bug. Verified locally: the default client's connection
+# pool has _http2=True; this one has _http2=False.
 sb = None
 if SUPABASE_SERVICE_KEY:
     try:
-        sb = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-        print("Supabase connected successfully")
+        _http_client = httpx.Client(http2=False, timeout=30)
+        sb = create_client(
+            SUPABASE_URL,
+            SUPABASE_SERVICE_KEY,
+            options=ClientOptions(httpx_client=_http_client),
+        )
+        print("Supabase connected successfully (http2=False)")
     except Exception as e:
         print(f"Supabase connection failed: {e}")
         sb = None
@@ -61,6 +80,12 @@ ROLE_MAP = {
     "hr":                  "hr"
 }
 
+# The one permission key that has a side effect beyond user_permissions —
+# toggling it also writes/deletes a row in pricing_admin_users (Cost Master's
+# real RLS security boundary). See save_user_permission() and
+# all_users_permissions() below for the two places this is used.
+COST_MASTER_PERMISSION_KEY = "can_access_cost_master"
+
 # ── Helper: check database is connected ────────────────────────
 # Called at the top of every endpoint.
 # If the Supabase client failed to initialise (missing key),
@@ -72,8 +97,34 @@ def db_check():
         }), 503
     return None   # None means all good, continue
 
-# ── Helper: check if a caller is an admin ───────────────────────
-# Used by the two admin endpoints to block non-admin callers.
+# ── Helper: retry a Supabase query a few times on a transient transport
+# failure (the ConnectionTerminated / "Server disconnected" class of error —
+# see the http2=False comment on client setup above). This is specifically
+# for recovering from a dropped connection, not for retrying a real data/
+# query error — a genuine PostgREST error (bad filter, missing table, RLS
+# denial, etc.) fails immediately on the first attempt via the same
+# .execute() call and isn't worth retrying, but we don't try to distinguish
+# that here: 2 extra attempts at ~150ms apart cost nothing on the rare
+# genuine-error path either, since the caller's own try/except still runs
+# once every attempt is exhausted.
+def _execute_with_retry(query_fn, attempts=3, base_delay=0.15):
+    last_exc = None
+    for attempt in range(attempts):
+        try:
+            return query_fn()
+        except Exception as e:
+            last_exc = e
+            if attempt < attempts - 1:
+                print(f"[retry] transient error on attempt {attempt + 1}/{attempts}: {e}")
+                time.sleep(base_delay * (attempt + 1))
+    raise last_exc
+
+# ── Helper: check if a caller is an admin (MIS or Managing Director) ────
+# Broad "is this person MD-office-level staff" check. Used by
+# /api/admin/generate-checklist-tasks (Task Scheduler) — NOT by the Access
+# Control endpoints any more, see is_access_control_admin() below, which is
+# a deliberately narrower, separate business rule. Do not merge these two
+# back together: MD/owner must keep passing this one.
 # Reads the X-User-Email header that the frontend sends with every request.
 def is_admin(caller_email):
     if not caller_email:
@@ -81,16 +132,47 @@ def is_admin(caller_email):
     if sb is None:
         return False
     try:
-        res = sb.table("Employee_details") \
-            .select("Employee_Dept") \
-            .ilike("Email_Id", caller_email) \
-            .limit(1) \
-            .execute()
+        res = _execute_with_retry(lambda: sb.table("Employee_details")
+            .select("Employee_Dept")
+            .ilike("Email_Id", caller_email)
+            .limit(1)
+            .execute())
         if not res.data:
             return False
         dept = str(res.data[0].get("Employee_Dept", "")).strip().lower()
         return dept in ["mis", "managing director"]
-    except Exception:
+    except Exception as e:
+        # This is exactly where a transient ConnectionTerminated used to turn
+        # into a silent "not an admin" — now logged, and only reached once
+        # _execute_with_retry has already exhausted its attempts.
+        print(f"is_admin() failed after retries for {caller_email}: {e}")
+        return False
+
+# ── Helper: check if a caller may use the Access Control panel ─────────
+# Deliberately narrower than is_admin() above — MIS ONLY, not Managing
+# Director/owner. This is a business-rule restriction on who may view/edit
+# other people's permissions, decided separately from (and later than) the
+# general "is this person MD-office staff" check — is_admin() itself is
+# untouched and still authorizes MD for Task Scheduler generation and any
+# other MD-specific feature.
+# Used by POST /api/admin/permissions and GET /api/admin/all-users-permissions.
+def is_access_control_admin(caller_email):
+    if not caller_email:
+        return False
+    if sb is None:
+        return False
+    try:
+        res = _execute_with_retry(lambda: sb.table("Employee_details")
+            .select("Employee_Dept")
+            .ilike("Email_Id", caller_email)
+            .limit(1)
+            .execute())
+        if not res.data:
+            return False
+        dept = str(res.data[0].get("Employee_Dept", "")).strip().lower()
+        return dept == "mis"
+    except Exception as e:
+        print(f"is_access_control_admin() failed after retries for {caller_email}: {e}")
         return False
 
 # ── Helper: build merged permissions for one user ───────────────
@@ -102,25 +184,25 @@ def get_permissions(email, role):
 
     # Step 1: role defaults
     try:
-        defaults_res = sb.table("role_defaults") \
-            .select("permission, value") \
-            .eq("role", role) \
-            .execute()
+        defaults_res = _execute_with_retry(lambda: sb.table("role_defaults")
+            .select("permission, value")
+            .eq("role", role)
+            .execute())
         for row in (defaults_res.data or []):
             permissions[row["permission"]] = row["value"]
     except Exception as e:
-        print(f"Error fetching role defaults: {e}")
+        print(f"Error fetching role defaults (after retries): {e}")
 
     # Step 2: user-specific overrides
     try:
-        overrides_res = sb.table("user_permissions") \
-            .select("permission, value") \
-            .eq("user_email", email.lower()) \
-            .execute()
+        overrides_res = _execute_with_retry(lambda: sb.table("user_permissions")
+            .select("permission, value")
+            .eq("user_email", email.lower())
+            .execute())
         for row in (overrides_res.data or []):
             permissions[row["permission"]] = row["value"]   # override wins
     except Exception as e:
-        print(f"Error fetching user overrides: {e}")
+        print(f"Error fetching user overrides (after retries): {e}")
 
     return permissions
 
@@ -280,9 +362,9 @@ def save_user_permission():
     # The frontend sends the admin's email in this header
     caller_email = request.headers.get("X-User-Email", "").strip().lower()
 
-    # Block non-admins
-    if not is_admin(caller_email):
-        return jsonify({"error": "Forbidden — only MIS or Managing Director can change permissions"}), 403
+    # Block non-admins — Access Control is MIS-only (see is_access_control_admin)
+    if not is_access_control_admin(caller_email):
+        return jsonify({"error": "Forbidden — only MIS can change permissions"}), 403
 
     # Read the request body
     body       = request.get_json() or {}
@@ -307,6 +389,35 @@ def save_user_permission():
         ).execute()
     except Exception as e:
         return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+    # Cost Master's REAL security boundary is pricing_admin_users (a Supabase
+    # table checked by is_pricing_admin(), which gates RLS on cost_price) —
+    # a completely separate table from this permission system. This toggle
+    # is the one place that keeps both in sync, using the service-role
+    # client (bypasses RLS, same as every other privileged write in this
+    # file) so MIS only ever has to flip one switch instead of also running
+    # SQL. The user_permissions write above already succeeded by this
+    # point; if this second write fails, we deliberately return an error
+    # here (not the "ok" below) so MIS knows to retry — silently reporting
+    # success while the RLS grant and the UI toggle disagree is exactly the
+    # drift this feature exists to prevent.
+    if permission == COST_MASTER_PERMISSION_KEY:
+        try:
+            if value == "true":
+                _execute_with_retry(lambda: sb.table("pricing_admin_users")
+                    .upsert({"email": user_email}, on_conflict="email")
+                    .execute())
+            else:
+                _execute_with_retry(lambda: sb.table("pricing_admin_users")
+                    .delete()
+                    .eq("email", user_email)
+                    .execute())
+        except Exception as e:
+            return jsonify({
+                "error": ("Permission saved, but syncing Cost Master access failed: "
+                          f"{e}. The toggle and actual Cost Master access may now be "
+                          "out of sync — please retry.")
+            }), 500
 
     return jsonify({"ok": True})
 
@@ -339,50 +450,71 @@ def all_users_permissions():
     if err:
         return err
 
-    # Block non-admins
+    # Block non-admins — Access Control is MIS-only (see is_access_control_admin)
     caller_email = request.headers.get("X-User-Email", "").strip().lower()
-    if not is_admin(caller_email):
+    if not is_access_control_admin(caller_email):
         return jsonify({"error": "Forbidden"}), 403
 
     # Get all employees from Employee_details
     try:
-        emps_res = sb.table("Employee_details") \
-            .select("Employee_name, Email_Id, Employee_Dept") \
-            .execute()
+        emps_res = _execute_with_retry(lambda: sb.table("Employee_details")
+            .select("Employee_name, Email_Id, Employee_Dept")
+            .execute())
     except Exception as e:
         return jsonify({"error": f"Database error: {str(e)}"}), 500
 
     # Get all possible permission keys from role_defaults
     # (so the admin panel knows what toggles to show)
     try:
-        keys_res = sb.table("role_defaults").select("permission").execute()
+        keys_res = _execute_with_retry(lambda: sb.table("role_defaults").select("permission").execute())
         all_keys = sorted(list({r["permission"] for r in (keys_res.data or [])}))
-    except Exception:
+    except Exception as e:
+        print(f"Error fetching permission keys (after retries): {e}")
         all_keys = []
 
     # Get ALL role defaults in one query (more efficient than one query per user)
     try:
-        all_defaults_res = sb.table("role_defaults") \
-            .select("role, permission, value") \
-            .execute()
+        all_defaults_res = _execute_with_retry(lambda: sb.table("role_defaults")
+            .select("role, permission, value")
+            .execute())
         # Build a nested dict: defaults_map["mis"]["can_view_ims"] = "true"
         defaults_map = {}
         for row in (all_defaults_res.data or []):
             defaults_map.setdefault(row["role"], {})[row["permission"]] = row["value"]
-    except Exception:
+    except Exception as e:
+        print(f"Error fetching all role defaults (after retries): {e}")
         defaults_map = {}
 
     # Get ALL user overrides in one query
     try:
-        all_overrides_res = sb.table("user_permissions") \
-            .select("user_email, permission, value") \
-            .execute()
+        all_overrides_res = _execute_with_retry(lambda: sb.table("user_permissions")
+            .select("user_email, permission, value")
+            .execute())
         # Build a nested dict: overrides_map["email"]["can_view_ims"] = "true"
         overrides_map = {}
         for row in (all_overrides_res.data or []):
             overrides_map.setdefault(row["user_email"], {})[row["permission"]] = row["value"]
-    except Exception:
+    except Exception as e:
+        print(f"Error fetching all user overrides (after retries): {e}")
         overrides_map = {}
+
+    # Cost Master toggle display: pricing_admin_users (not user_permissions)
+    # is the REAL security boundary — is_pricing_admin() checks this table
+    # directly, RLS on cost_price is keyed off it. Reading it fresh here
+    # means the panel always shows the toggle matching actual Cost Master
+    # access, even for rows inserted by hand before this feature existed
+    # (chirag@/mis@/mis1@ etc from the original seed) — no reconciliation
+    # migration needed, this makes drift self-correcting on every load.
+    try:
+        pau_res = _execute_with_retry(lambda: sb.table("pricing_admin_users").select("email").execute())
+        pricing_admin_emails = {str(r["email"]).strip().lower() for r in (pau_res.data or [])}
+    except Exception as e:
+        print(f"Error fetching pricing_admin_users (after retries): {e}")
+        # Fail closed on the DISPLAY only: if we can't confirm real membership,
+        # show the toggle off rather than risk showing "on" when we don't
+        # actually know. The real RLS check (is_pricing_admin()) is unaffected
+        # either way — this only controls what the panel renders.
+        pricing_admin_emails = set()
 
     # Build the result — one entry per employee
     result = []
@@ -398,6 +530,11 @@ def all_users_permissions():
         perms = {}
         perms.update(defaults_map.get(role, {}))      # base: role defaults
         perms.update(overrides_map.get(email, {}))    # override: user-specific
+        # Cost Master: always overridden by actual pricing_admin_users
+        # membership — see comment above. This key is the one exception to
+        # "user_permissions is the source of truth" in this endpoint.
+        if COST_MASTER_PERMISSION_KEY in all_keys:
+            perms[COST_MASTER_PERMISSION_KEY] = "true" if email in pricing_admin_emails else "false"
 
         result.append({
             "name":        emp.get("Employee_name", ""),

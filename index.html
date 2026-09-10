@@ -108,7 +108,7 @@
   }
 
 </script>  
-<link rel="stylesheet" href="css/styles.css?v=20260805">
+<link rel="stylesheet" href="css/styles.css?v=20260910">
 </head>
 <body>
 
@@ -5915,6 +5915,170 @@ CREATE POLICY "Allow select for all" ON activity_logs FOR SELECT USING (true);</
 </div>
 
 <!-- ╔═══════════════════════════════════════════════════════════════════════
+     ║  [PANEL DEAL PRICING] — Deal Pricing Calculator
+     ║  Calculator tab: reps price deals above a system-enforced floor
+     ║  (get_pricing_catalog RPC — floor_price only, cost never sent to
+     ║  client), generate a quote (submit_quote RPC, server re-validates
+     ║  floor + computes totals) then download a client-side PDF.
+     ║  Cost Master tab: MD-office only (is_pricing_admin RPC, gated client-
+     ║  side here AND by RLS on pricing_products/pricing_state_costs) — the
+     ║  only screen that can create/edit/deactivate products or manage
+     ║  per-state cost overrides.
+     ║  JS: js/dealPricing.js — loadDealPricing() (~switchDB('dealpricing') hook)
+     ╚═══════════════════════════════════════════════════════════════════════ -->
+<div class="dashboard-panel" id="panel-dealpricing">
+  <div class="db-header">
+    <div>
+      <div class="db-title"><span>aditi</span> Deal Pricing Calculator</div>
+      <div class="db-breadcrumb">Home &rsaquo; Sales &rsaquo; Deal Calculator</div>
+    </div>
+    <button class="refresh-btn" onclick="loadDealPricing()">🔄 Refresh</button>
+  </div>
+
+  <div class="db-content">
+    <div id="dpTabBar" style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;"></div>
+
+    <!-- ── CALCULATOR TAB ── -->
+    <div id="dpTab-calc">
+      <div class="filters-bar">
+        <span class="filter-label">State:</span>
+        <select class="filter-select" id="dpStateSelect" onchange="dpOnStateChange(this.value)"></select>
+        <span class="filter-label">FILTER BY CATEGORY</span>
+        <select class="filter-select" id="dpCategoryFilter" onchange="dpOnCategoryFilterChange(this.value)">
+          <option value="">All Categories</option>
+        </select>
+        <input class="filter-input" id="dpCustomerName" placeholder="Customer / company name">
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          <span class="table-title">Line Items</span>
+          <button class="refresh-btn" onclick="dpAddLine()">+ Add Line</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Product</th><th>Qty</th><th>Floor Price</th><th>Margin %</th><th>Selling Price</th><th>Line Total</th><th></th>
+            </tr></thead>
+            <tbody id="dpLinesBody"></tbody>
+          </table>
+        </div>
+        <div id="dpLinesEmpty" class="empty-state">No line items yet — click "+ Add Line" to start a quote.</div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+        <div style="min-width:300px;max-width:360px;width:100%;">
+          <div class="kpi-card" style="padding:16px 18px;">
+            <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text2);margin-bottom:6px;"><span>Subtotal</span><span id="dpSubtotal">₹0.00</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text2);margin-bottom:6px;"><span>GST</span><span id="dpGst">₹0.00</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:1rem;font-weight:800;color:var(--text);border-top:1px solid var(--border);padding-top:8px;"><span>Grand Total</span><span id="dpGrandTotal">₹0.00</span></div>
+          </div>
+          <div id="dpFloorWarning" style="display:none;color:var(--accent3);font-size:0.8rem;margin-top:8px;">⚠ One or more lines are below floor price — fix before generating a quotation.</div>
+          <button id="dpGenerateBtn" class="refresh-btn" style="width:100%;margin-top:12px;background:var(--accent2);color:#04231d;border-color:var(--accent2);font-weight:700;justify-content:center;" onclick="dpGenerateQuote()">Generate Quotation</button>
+          <div id="dpQuoteMsg" style="margin-top:10px;font-size:0.84rem;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── COST MASTER TAB — MD only ── -->
+    <div id="dpTab-costmaster" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div style="font-size:0.8rem;color:var(--muted);">Product costs, margins &amp; GST — visible to MD office only. Reps never see this screen or the cost price.</div>
+        <button class="refresh-btn" onclick="dpOpenProductModal()">+ Add Product</button>
+      </div>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Name</th><th>Category</th><th>Unit</th><th>Cost</th><th>Margin %</th><th>Base Floor</th><th>GST %</th><th>State Overrides</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="dpCostMasterBody"></tbody>
+          </table>
+        </div>
+        <div id="dpCostMasterEmpty" class="empty-state" style="display:none;">No products yet — click "+ Add Product" to create the first one.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Deal Pricing — Add/Edit Product modal (Cost Master only) -->
+<div id="dpProductOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9998;overflow-y:auto;padding:20px;">
+  <div id="dpProductBox" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:92%;max-width:640px;position:relative;margin:5vh auto;">
+    <button onclick="dpCloseProductModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1;">✕</button>
+    <div class="db-title" id="dpProductModalTitle" style="margin-bottom:4px;">Add Product</div>
+    <div class="db-breadcrumb" id="dpProductModalSub" style="margin-bottom:18px;">New pricing product</div>
+
+    <div id="dpProductErr" style="display:none;background:rgba(255,92,124,0.1);border:1px solid rgba(255,92,124,0.3);color:var(--accent3);padding:10px 14px;border-radius:10px;font-size:0.83rem;margin-bottom:14px;"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div style="grid-column:1/-1;">
+        <label class="fms-form-label">Product Name</label>
+        <input type="text" id="dpPName" class="fms-form-input">
+      </div>
+      <div>
+        <label class="fms-form-label">Category</label>
+        <select id="dpPCategory" class="fms-form-input">
+          <option value="Hardware">Hardware</option>
+          <option value="Sensors">Sensors</option>
+          <option value="Subscription">Subscription</option>
+          <option value="Services">Services</option>
+        </select>
+      </div>
+      <div>
+        <label class="fms-form-label">Unit</label>
+        <input type="text" id="dpPUnit" class="fms-form-input" placeholder="e.g. per device, per month">
+      </div>
+      <div>
+        <label class="fms-form-label">Cost Price (₹)</label>
+        <input type="number" id="dpPCost" class="fms-form-input" min="0" step="0.01">
+      </div>
+      <div>
+        <label class="fms-form-label">Default Margin %</label>
+        <input type="number" id="dpPMargin" class="fms-form-input" min="0" step="0.1">
+      </div>
+      <div>
+        <label class="fms-form-label">GST %</label>
+        <input type="number" id="dpPGst" class="fms-form-input" min="0" step="0.1">
+      </div>
+      <div>
+        <label class="fms-form-label">Status</label>
+        <select id="dpPActive" class="fms-form-input">
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;font-size:0.78rem;color:var(--muted);">Base floor preview (state overrides may raise/lower this per state): <strong id="dpPFloorPreview">—</strong></div>
+
+    <button id="dpProductSaveBtn" class="refresh-btn" style="margin-top:18px;background:var(--accent2);color:#04231d;border-color:var(--accent2);font-weight:700;" onclick="dpSaveProduct()">Save Product</button>
+
+    <div id="dpStateOverridesSection" style="display:none;margin-top:26px;padding-top:20px;border-top:1px solid var(--border);">
+      <div style="font-weight:700;font-size:0.88rem;color:var(--text);margin-bottom:10px;">State Overrides</div>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>State</th><th>Cost Price</th><th>Floor (this state)</th><th></th></tr></thead>
+            <tbody id="dpOverridesBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <label class="fms-form-label">State</label>
+          <input type="text" id="dpNewOverrideState" class="fms-form-input" placeholder="e.g. Gujarat" style="width:160px;">
+        </div>
+        <div>
+          <label class="fms-form-label">Cost Price (₹)</label>
+          <input type="number" id="dpNewOverrideCost" class="fms-form-input" min="0" step="0.01" style="width:140px;">
+        </div>
+        <button class="refresh-btn" onclick="dpAddOverride()">+ Add Override</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ╔═══════════════════════════════════════════════════════════════════════
      ║  [PANEL CRM] — CRM Vehicle Dashboard (most complex panel)
      ║  GPS fleet data — live vehicle counts per server
      ║  5 servers: Premium, PRO, Goa, Gujarat, Bangalore
@@ -7158,8 +7322,8 @@ CREATE POLICY "Allow select for all" ON activity_logs FOR SELECT USING (true);</
 </div><!-- /#mainPortal -->
 <script src="js/shared.js?v=20260821"></script>
 <script src="js/responsive.js?v=20260805"></script>
-<script src="js/app.js?v=20260845"></script>
-<script src="js/auth.js?v=20260831"></script>
+<script src="js/app.js?v=20260910"></script>
+<script src="js/auth.js?v=20260914"></script>
 <script src="js/leads.js?v=20260805"></script>
 <script src="js/enterprise.js?v=20260805"></script>
 <script src="js/entsol.js?v=20260805"></script>
@@ -7168,7 +7332,7 @@ CREATE POLICY "Allow select for all" ON activity_logs FOR SELECT USING (true);</
 <script src="js/taskScheduler.js?v=20260805"></script>
 <script src="js/hr.js?v=20260901"></script>
 <script src="js/aftersales.js?v=20260805"></script>
-<script src="js/sales.js?v=20260805"></script>
+<script src="js/sales.js?v=20260912"></script>
 <script src="js/marketing.js?v=20260805"></script>
 <script src="js/referral.js?v=20260805"></script>
 <script src="js/finance.js?v=20260805"></script>
@@ -7182,12 +7346,13 @@ CREATE POLICY "Allow select for all" ON activity_logs FOR SELECT USING (true);</
 <script src="js/ims.js?v=20260901"></script>
 <script src="js/celebrations.js?v=20260805"></script>
 <script src="js/announcements.js?v=20260805"></script>
-<script src="js/adminperms.js?v=20260834"></script>
+<script src="js/adminperms.js?v=20260914"></script>
 <script src="js/renewals.js?v=20260835"></script>
 <script src="js/vendor.js?v=20260805"></script>
 <script src="js/fieldservice.js?v=20260901"></script>
 <script src="js/fieldservice-dashboard.js?v=20260902"></script>
 <script src="js/hrEmployee.js?v=20260805"></script>
 <script src="js/taskDelegation.js?v=20260845"></script>
+<script src="js/dealPricing.js?v=20260912"></script>
 <script src="js/homeContent.js?v=20260817"></script>
 </body></html>

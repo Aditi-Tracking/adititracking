@@ -60,6 +60,39 @@ async function loadSalesDocs(force) {
     if (loading) loading.style.display = 'none';
     if (errEl)   { errEl.style.display = 'block'; errEl.innerHTML = '<div style="text-align:center;padding:32px 16px;color:var(--muted);">⚠️ ' + e.message + '</div>'; }
   }
+  // Deal Calculator — not a content_nodes document category, so it's injected
+  // as a manually-authored first card rather than coming from cnRenderCatGrid.
+  // Independent of the CN try/catch above: a CN load failure shouldn't hide
+  // this unrelated tool card. See js/dealPricing.js for the two access gates.
+  await _salesInjectDealCalculatorCard(grid);
+}
+
+async function _salesInjectDealCalculatorCard(grid) {
+  if (!grid || grid.querySelector('.sales-dealcalc-card')) return;
+  let show = (typeof _dpCanAccessCalculator === 'function') && _dpCanAccessCalculator();
+  if (!show && typeof _dpFetchIsPricingAdmin === 'function') show = await _dpFetchIsPricingAdmin();
+  if (!show) return;
+
+  const th = cnTheme(0);
+  const html = `
+  <div class="sales-dealcalc-card" style="position:relative;">
+    <div class="home-card" style="--card-top:${th.color};cursor:pointer;"
+      onclick="switchDB('dealpricing')"
+      onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 36px rgba(0,0,0,0.3)';this.style.borderColor='${th.color}'"
+      onmouseout="this.style.transform='';this.style.boxShadow='';this.style.borderColor=''">
+      <div class="hc-icon" style="background:${th.bg};border-color:${th.border};color:${th.color};">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      </div>
+      <div class="hc-name">Deal Calculator</div>
+      <div class="hc-desc" style="font-size:0.88rem;line-height:1.55;color:var(--muted);">Price deals above the system-enforced floor and generate customer quotations.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;">
+        <span class="hc-status live" style="background:${th.bg};color:${th.color};border:1px solid ${th.border};">⚡ Tool</span>
+        <span style="font-size:0.78rem;font-weight:600;color:${th.color};">Open →</span>
+      </div>
+    </div>
+  </div>`;
+  grid.insertAdjacentHTML('afterbegin', html);
+  grid.style.display = 'grid';
 }
 
 function cnOpenSalesOverlay(nodeId, catName) {
